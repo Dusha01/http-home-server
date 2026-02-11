@@ -2,7 +2,7 @@
 Модели для аутентификации
 """
 from datetime import datetime
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from pydantic import BaseModel
 
 
@@ -31,6 +31,19 @@ class TokenResponse(BaseModel):
     token: str
     description: Optional[str] = None
     message: str = "Token generated successfully"
+    
+    # Новые поля для QR
+    qr_code: Optional[str] = None
+    auth_url: Optional[str] = None
+
+
+class TokenWithQRResponse(BaseModel):
+    """Ответ с токеном и QR-кодом"""
+    token: str
+    qr_code: str
+    auth_url: str
+    description: Optional[str] = None
+    created_at: datetime
 
 
 class ValidateTokenResponse(BaseModel):
@@ -51,3 +64,17 @@ class TokenListResponse(BaseModel):
     active_count: int
     expired_count: int = 0
     total_count: int
+
+
+class TokenDisplayResponse(BaseModel):
+    """Ответ для отображения токена при запуске"""
+    token: str
+    qr_code: str
+    auth_url: str
+    server_info: Dict[str, str]
+    instructions: List[str] = [
+        "1. Отсканируйте QR-код камерой телефона",
+        "2. Или введите токен вручную",
+        "3. Нажмите 'Войти' в веб-интерфейсе",
+        "Токен бессрочный, но его можно отозвать"
+    ]

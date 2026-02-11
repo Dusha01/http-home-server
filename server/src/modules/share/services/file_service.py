@@ -1,0 +1,421 @@
+"""
+Сервис для операций с файлами в общих директориях
+"""
+import shutil
+import os
+from pathlib import Path
+from typing import Optional, List, Dict, Any
+from fastapi import UploadFile, HTTPException
+
+from src.modules.share.models.file_models import FileInfo, DirectoryContent, SharedDirectory
+from src.modules.share.utils.file_utils import FileUtils
+from src.modules.share.services.directory_service import DirectoryService
+
+
+
+class FileService:
+    """Операции с файлами и директориями"""
+    
+    def __init__(self, directory_service: DirectoryService):
+        self.directory_service = directory_service
+        self.file_utils = FileUtils()
+    
+    def _resolve_path(self, request_path: str) -> tuple:
+        """
+        Разрешение запрошенного пути до конкретной общей директории и относительного пути
+        
+        Args:
+            request_path: Запрошенный путь (относительный или абсолютный)
+            
+        Returns:
+            tuple: (shared_directory, relative_path, full_path)
+            
+        Raises:
+            HTTPException: Если путь не находится ни в одной общей директории
+        """
+        # Пытаемся интерпретировать как абсолютный путь
+        try:
+            path = Path(request_path).expanduser().resolve()
+        except RuntimeError:
+            path = Path(request_path)
+        
+        shared_dir = self.directory_service.get_directory_by_path(path)
+        
+        if not shared_dir:
+            raise HTTPException(
+                status_code=403,
+                detail="Access to this path is not allowed"
+            )
+        
+        base_path = Path(shared_dir.path).resolve()
+        
+        if path == base_path:
+            relative_path = Path("")
+        else:
+            try:
+                relative_path = path.relative_to(base_path)
+            except ValueError:
+                relative_path = Path(str(path)[len(str(base_path)):].lstrip('/\\'))
+        
+        return shared_dir, relative_path, path
+    
+
+    async def get_directory_content(
+        self, 
+        path: str, 
+        show_hidden: bool = False
+    ) -> DirectoryContent:
+        """
+        Получение содержимого директории
+        
+        Args:
+            path: Путь к директории
+            show_hidden: Показывать скрытые файлы
+            
+        Returns:
+            DirectoryContent: Структурированное содержимое директории
+        """
+        shared_dir, relative_path, full_path = self._resolve_path(path)
+        
+        if not full_path.exists():
+            raise HTTPException(status_code=404, detail="Path not found")
+        
+        if not full_path.is_dir():
+            raise HTTPException(status_code=400, detail="Path is not a directory")
+        
+        base_path = Path(shared_dir.path).resolve()
+        directories, files = FileUtils.get_directory_content(
+            full_path, base_path, show_hidden
+        )
+        
+        return DirectoryContent.from_lists(
+            path=relative_path.as_posix() if str(relative_path) else "/",
+            dirs=directories,
+            files=files
+        )
+    
+
+    async def get_file_info(self, path: str) -> FileInfo:
+        """Получение информации о файле/директории"""
+        shared_dir, relative_path, full_path = self._resolve_path(path)
+        
+        if not full_path.exists():
+            raise HTTPException(status_code=404, detail="Path not found")
+        
+        base_path = Path(shared_dir.path).resolve()
+        file_info = FileUtils.get_file_info(full_path, base_path)
+        
+        if not file_info:
+            raise HTTPException(status_code=500, detail="Could not read file info")
+        
+        return file_info
+    
+
+    async def download_file(self, path: str, chunk_size: int = 64 * 1024):
+        """
+        Подготовка файла к скачиванию
+        
+        Args:
+            path: Путь к файлу
+            chunk_size: Размер чанка для чтения
+            
+        Returns:
+            tuple: (file_path, mime_type, filename)
+        """
+        shared_dir, relative_path, full_path = self._resolve_path(path)
+        
+        if not full_path.exists():
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        if not full_path.is_file():
+            raise HTTPException(status_code=400, detail="Path is not a file")
+        
+        mime_type = FileUtils.get_mime_type(full_path)
+        
+        return full_path, mime_type, full_path.name
+    
+
+    async def upload_file(
+        self,
+        directory_path: str,
+        file: UploadFile,
+        overwrite: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Загрузка файла в общую директорию
+        
+        Args:
+            directory_path: Путь к директории для загрузки
+            file: Загружаемый файл
+            overwrite: Перезаписывать существующий файл
+            
+        Returns:
+            Dict: Информация о загруженном файле
+        """
+        shared_dir, relative_path, full_path = self._resolve_path(directory_path)
+        
+        if not shared_dir.allow_upload:
+            raise HTTPException(
+                status_code=403, 
+                detail="Uploads are not allowed in this directory"
+            )
+        
+        if not full_path.exists():
+            raise HTTPException(status_code=404, detail="Directory not found")
+        
+        if not full_path.is_dir():
+            raise HTTPException(status_code=400, detail="Path is not a directory")
+        
+        safe_filename = FileUtils.safe_filename(file.filename)
+        
+        file_path = full_path / safe_filename
+        
+        if file_path.exists() and not overwrite:
+            file_path = FileUtils.get_unique_filename(full_path, safe_filename)
+        
+        try:
+            content = await file.read()
+            with open(file_path, 'wb') as f:
+                f.write(content)
+            
+            base_path = Path(shared_dir.path).resolve()
+            file_info = FileUtils.get_file_info(file_path, base_path)
+            
+            return {
+                "filename": file_path.name,
+                "path": str(file_path.relative_to(base_path) if file_path.relative_to(base_path) else file_path),
+                "size": len(content),
+                "mime_type": FileUtils.get_mime_type(file_path),
+                "file_info": file_info
+            }
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to upload file: {str(e)}"
+            )
+    
+
+    async def create_directory(
+        self, 
+        parent_path: str, 
+        dir_name: str
+    ) -> FileInfo:
+        """
+        Создание новой директории
+        
+        Args:
+            parent_path: Путь к родительской директории
+            dir_name: Имя новой директории
+            
+        Returns:
+            FileInfo: Информация о созданной директории
+        """
+        shared_dir, relative_path, full_path = self._resolve_path(parent_path)
+        
+        if not shared_dir.allow_upload:
+            raise HTTPException(
+                status_code=403,
+                detail="Creating directories is not allowed"
+            )
+        
+        if not full_path.exists():
+            raise HTTPException(status_code=404, detail="Parent directory not found")
+        
+        if not full_path.is_dir():
+            raise HTTPException(status_code=400, detail="Parent path is not a directory")
+        
+        safe_name = FileUtils.safe_filename(dir_name)
+        new_dir_path = full_path / safe_name
+        
+        if new_dir_path.exists():
+            raise HTTPException(
+                status_code=400,
+                detail=f"Directory '{safe_name}' already exists"
+            )
+        
+        try:
+            new_dir_path.mkdir(parents=True, exist_ok=False)
+            
+            base_path = Path(shared_dir.path).resolve()
+            file_info = FileUtils.get_file_info(new_dir_path, base_path)
+            
+            if not file_info:
+                raise HTTPException(status_code=500, detail="Could not read directory info")
+            
+            return file_info
+        except OSError as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to create directory: {str(e)}"
+            )
+    
+
+    async def delete_path(
+        self, 
+        path: str, 
+        recursive: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Удаление файла или директории
+        
+        Args:
+            path: Путь к удаляемому объекту
+            recursive: Рекурсивное удаление для директорий
+            
+        Returns:
+            Dict: Результат операции
+        """
+        shared_dir, relative_path, full_path = self._resolve_path(path)
+        
+        if not shared_dir.allow_delete:
+            raise HTTPException(
+                status_code=403,
+                detail="Deletion is not allowed in this directory"
+            )
+        
+        if not full_path.exists():
+            raise HTTPException(status_code=404, detail="Path not found")
+        
+        if Path(shared_dir.path).resolve() == full_path.resolve():
+            raise HTTPException(
+                status_code=403,
+                detail="Cannot delete the root of shared directory"
+            )
+        
+        try:
+            if full_path.is_file():
+                size = full_path.stat().st_size
+                full_path.unlink()
+                return {
+                    "deleted_path": str(relative_path),
+                    "type": "file",
+                    "size": size
+                }
+            else:
+                if not recursive:
+                    if any(full_path.iterdir()):
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Directory is not empty. Use recursive=True to delete."
+                        )
+                
+                shutil.rmtree(full_path)
+                return {
+                    "deleted_path": str(relative_path),
+                    "type": "directory",
+                    "recursive": recursive
+                }
+        except OSError as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to delete: {str(e)}"
+            )
+    
+
+    async def rename_path(
+        self, 
+        old_path: str, 
+        new_name: str
+    ) -> FileInfo:
+        """
+        Переименование файла или директории
+        
+        Args:
+            old_path: Текущий путь
+            new_name: Новое имя
+            
+        Returns:
+            FileInfo: Информация о переименованном объекте
+        """
+        shared_dir, relative_path, full_path = self._resolve_path(old_path)
+        
+        if not shared_dir.allow_rename:
+            raise HTTPException(
+                status_code=403,
+                detail="Renaming is not allowed in this directory"
+            )
+        
+        if not full_path.exists():
+            raise HTTPException(status_code=404, detail="Path not found")
+        
+        if Path(shared_dir.path).resolve() == full_path.resolve():
+            raise HTTPException(
+                status_code=403,
+                detail="Cannot rename the root of shared directory"
+            )
+        
+        safe_name = FileUtils.safe_filename(new_name)
+        new_path = full_path.parent / safe_name
+        
+        if new_path.exists():
+            raise HTTPException(
+                status_code=400,
+                detail=f"'{safe_name}' already exists"
+            )
+        
+        try:
+            full_path.rename(new_path)
+            
+            base_path = Path(shared_dir.path).resolve()
+            file_info = FileUtils.get_file_info(new_path, base_path)
+            
+            if not file_info:
+                raise HTTPException(status_code=500, detail="Could not read file info")
+            
+            return file_info
+        except OSError as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to rename: {str(e)}"
+            )
+    
+
+    async def search_files(
+        self, 
+        query: str,
+        directory_id: Optional[str] = None,
+        max_results: int = 100
+    ) -> List[FileInfo]:
+        """
+        Поиск файлов по имени
+        
+        Args:
+            query: Поисковый запрос
+            directory_id: ID конкретной директории для поиска (опционально)
+            max_results: Максимальное количество результатов
+            
+        Returns:
+            List[FileInfo]: Найденные файлы
+        """
+        results = []
+        
+        if directory_id:
+            directory = self.directory_service.get_directory(directory_id)
+            if not directory or not directory.is_active:
+                return []
+            directories = [directory]
+        else:
+            directories = self.directory_service.list_directories(include_inactive=False)
+        
+        query_lower = query.lower()
+        
+        for directory in directories:
+            base_path = Path(directory.path).resolve()
+            
+            for root, _, files in os.walk(base_path):
+                root_path = Path(root)
+                
+                for file in files:
+                    if len(results) >= max_results:
+                        break
+                    
+                    if query_lower in file.lower():
+                        file_path = root_path / file
+                        file_info = FileUtils.get_file_info(file_path, base_path)
+                        if file_info:
+                            results.append(file_info)
+                
+                if len(results) >= max_results:
+                    break
+        
+        return results[:max_results]

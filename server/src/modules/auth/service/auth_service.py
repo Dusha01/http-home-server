@@ -2,29 +2,57 @@ import json
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, Optional, Tuple
+import socket
 
 from src.modules.auth.utils.token_generate import TokenGenerator
 from src.modules.auth.utils.token_validator import TokenValidator
-from src.modules.auth.models.auth_models import TokenData, ValidateTokenResponse, TokenListResponse
+from src.modules.auth.utils.qr_utils import QRUtils
+from src.modules.auth.models.auth_models import TokenData, ValidateTokenResponse, TokenListResponse, TokenDisplayResponse, TokenWithQRResponse
 from src.config import config
 
 
 class AuthService:
     """Сервис для управления аутентификацией"""
     
-    def __init__(self, tokens_file: Path = None):
+    def __init__(self, tokens_file: Path = None, server_url: Optional[str] = None):
         self.tokens_file = tokens_file or config.storage_dir / "tokens.json"
         self.tokens: Dict[str, Dict[str, Any]] = self._load_tokens()
         self.generator = TokenGenerator()
         self.validator = TokenValidator()
+        self.qr_utils = QRUtils()
+        self.server_url = server_url or self._detect_server_url()
+
+
+    def _detect_server_url(self) -> str:
+        """Автоматическое определение URL сервера"""
+        try:
+            # Получаем локальный IP
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+            s.close()
+            
+            # Берем порт из конфига или используем 8080
+            port = getattr(config, 'PORT', 8080)
+            return f"http://{local_ip}:{port}"
+        except:
+            return "http://localhost:8080"
     
+
     def _load_tokens(self) -> Dict[str, Dict[str, Any]]:
         """Загрузка токенов из файла"""
         if self.tokens_file.exists():
             try:
                 with open(self.tokens_file, 'r') as f:
                     data = json.load(f)
-                    return self._convert_tokens_format(data)
+                    converted = {}
+                    for token, token_data in data.items():
+                        if isinstance(token_data, dict):
+                            token_data.pop("expires_at", None)
+                            if "created_at" not in token_data:
+                                token_data["created_at"] = datetime.now().isoformat()
+                            converted[token] = token_data
+                    return converted
             except (json.JSONDecodeError, IOError):
                 return {}
         return {}
@@ -68,6 +96,29 @@ class AuthService:
         return token, token_data
     
 
+    def generate_initial_token(self) -> TokenDisplayResponse:
+        """
+        Генерация начального токена при запуске сервера
+        """
+        token, token_data = self.generate_token(
+            description="Initial server token"
+        )
+        
+        auth_url = self.qr_utils.generate_auth_url(token, self.server_url)
+        qr_code = self.qr_utils.generate_qr_code(auth_url)
+        
+        return TokenDisplayResponse(
+            token=token,
+            qr_code=qr_code,
+            auth_url=auth_url,
+            server_info={
+                "url": self.server_url,
+                "hostname": socket.gethostname(),
+                "ip": self.server_url.split("//")[1].split(":")[0] if "//" in self.server_url else "localhost"
+            }
+        )
+    
+
     def validate_token(self, token: str) -> ValidateTokenResponse:
         """Проверка валидности токена"""
         if token not in self.tokens:
@@ -80,13 +131,15 @@ class AuthService:
         is_valid, message, updated_data = self.validator.validate_token(token, token_data)
         
         if is_valid and updated_data:
-            # Обновление данных токена
             self.tokens[token] = updated_data
             self._save_tokens()
             
+            updated_data_with_token = updated_data.copy()
+            updated_data_with_token["token"] = token
+            
             return ValidateTokenResponse(
                 valid=True,
-                token_data=TokenData(**updated_data),
+                token_data=TokenData(**updated_data_with_token),
                 message=message
             )
         else:
@@ -94,22 +147,34 @@ class AuthService:
                 valid=False,
                 message=message
             )
+        
     
+    def get_token_with_qr(self, token: str) -> Optional[TokenWithQRResponse]:
+        """
+        Получение токена с QR-кодом (для отображения)
+        """
+        if token not in self.tokens:
+            return None
+        
+        token_data = self.tokens[token]
+        auth_url = self.qr_utils.generate_auth_url(token, self.server_url)
+        qr_code = self.qr_utils.generate_qr_code(auth_url)
+        
+        return TokenWithQRResponse(
+            token=token,
+            qr_code=qr_code,
+            auth_url=auth_url,
+            description=token_data.get("description"),
+            created_at=datetime.fromisoformat(token_data["created_at"])
+        )
 
-    def revoke_token(self, token: str) -> bool:
-        """Отзыв токена"""
-        if token in self.tokens:
-            self.tokens[token]["is_active"] = False
-            self.tokens[token]["revoked_at"] = datetime.now().isoformat()
-            self._save_tokens()
-            return True
-        return False
-    
 
     def get_token_info(self, token: str) -> Optional[TokenData]:
         """Получение информации о токене"""
         if token in self.tokens:
-            return TokenData(**self.tokens[token])
+            token_data = self.tokens[token].copy()
+            token_data["token"] = token
+            return TokenData(**token_data)
         return None
     
 
@@ -119,23 +184,35 @@ class AuthService:
         filtered_tokens = {}
         
         for token_str, token_data in self.tokens.items():
-            token_obj = TokenData(**token_data)
-            
-            if not include_inactive and not token_obj.is_active:
+            if not isinstance(token_data, dict):
                 continue
+                
+            token_data_copy = token_data.copy()
             
-            filtered_tokens[token_str] = token_obj
+            if "created_at" not in token_data_copy:
+                token_data_copy["created_at"] = datetime.now().isoformat()
             
-            if token_obj.is_active:
-                active_count += 1
+            try:
+                token_obj = TokenData(token=token_str, **token_data_copy)
+                
+                if not include_inactive and not token_obj.is_active:
+                    continue
+                
+                filtered_tokens[token_str] = token_obj
+                
+                if token_obj.is_active:
+                    active_count += 1
+            except Exception as e:
+                print(f"⚠️ Пропуск поврежденного токена {token_str}: {e}")
+                continue
         
         return TokenListResponse(
             tokens=filtered_tokens,
             active_count=active_count,
-            expired_count=0,  # Всегда 0 для бессрочных токенов
+            expired_count=0,
             total_count=len(filtered_tokens)
         )
-    
+        
 
     def cleanup_inactive(self):
         """Очистка отозванных токенов"""
@@ -163,3 +240,12 @@ class AuthService:
             "inactive_tokens": total - active,
             "storage_file": str(self.tokens_file)
         }
+
+
+    def revoke_token(self, token: str) -> bool:
+        """Отзыв токена"""
+        if token in self.tokens:
+            self.tokens[token]["is_active"] = False
+            self._save_tokens()
+            return True
+        return False

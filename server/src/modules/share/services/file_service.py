@@ -12,51 +12,84 @@ from src.modules.share.utils.file_utils import FileUtils
 from src.modules.share.services.directory_service import DirectoryService
 
 
+def _default_shared_dir(root_path: Path) -> SharedDirectory:
+    """Виртуальная «общая» директория для корня по умолчанию (storage_dir)."""
+    return SharedDirectory(
+        id="default",
+        name=root_path.name or "Storage",
+        path=str(root_path.resolve()),
+        description="Корневая папка хранилища по умолчанию",
+    )
+
 
 class FileService:
     """Операции с файлами и директориями"""
-    
-    def __init__(self, directory_service: DirectoryService):
+
+    def __init__(
+        self,
+        directory_service: DirectoryService,
+        default_root_path: Optional[Path] = None,
+    ):
         self.directory_service = directory_service
         self.file_utils = FileUtils()
-    
+        self.default_root_path = Path(default_root_path).resolve() if default_root_path else None
+
     def _resolve_path(self, request_path: str) -> tuple:
         """
-        Разрешение запрошенного пути до конкретной общей директории и относительного пути
-        
-        Args:
-            request_path: Запрошенный путь (относительный или абсолютный)
-            
-        Returns:
-            tuple: (shared_directory, relative_path, full_path)
-            
-        Raises:
-            HTTPException: Если путь не находится ни в одной общей директории
+        Разрешение запрошенного пути до конкретной общей директории и относительного пути.
+        При запросе "/" и отсутствии общих папок используется default_root_path (storage).
         """
-        # Пытаемся интерпретировать как абсолютный путь
+        raw = (request_path or "").strip() or "/"
+        is_root_request = raw in ("/", "", ".")
+
+        if is_root_request and self.default_root_path:
+            default_path = self.default_root_path
+            if not default_path.exists():
+                default_path.mkdir(parents=True, exist_ok=True)
+            if default_path.is_dir():
+                virtual = _default_shared_dir(default_path)
+                return virtual, Path(""), default_path
+            # иначе ищем в обычных общих директориях ниже
+
         try:
             path = Path(request_path).expanduser().resolve()
         except RuntimeError:
             path = Path(request_path)
-        
+
         shared_dir = self.directory_service.get_directory_by_path(path)
-        
+
+        if not shared_dir and self.default_root_path:
+            if not self.default_root_path.exists():
+                self.default_root_path.mkdir(parents=True, exist_ok=True)
+            clean = request_path.strip("/").replace("\\", "/")
+            if not clean:
+                virtual = _default_shared_dir(self.default_root_path)
+                return virtual, Path(""), self.default_root_path
+            candidate = (self.default_root_path / clean).resolve()
+            try:
+                if str(candidate).startswith(str(self.default_root_path)):
+                    virtual = _default_shared_dir(self.default_root_path)
+                    rel = candidate.relative_to(self.default_root_path)
+                    return virtual, rel, candidate
+            except ValueError:
+                pass
+
         if not shared_dir:
             raise HTTPException(
                 status_code=403,
-                detail="Access to this path is not allowed"
+                detail="Access to this path is not allowed",
             )
-        
+
         base_path = Path(shared_dir.path).resolve()
-        
+
         if path == base_path:
             relative_path = Path("")
         else:
             try:
                 relative_path = path.relative_to(base_path)
             except ValueError:
-                relative_path = Path(str(path)[len(str(base_path)):].lstrip('/\\'))
-        
+                relative_path = Path(str(path)[len(str(base_path)) :].lstrip("/\\"))
+
         return shared_dir, relative_path, path
     
 
@@ -133,7 +166,35 @@ class FileService:
         mime_type = FileUtils.get_mime_type(full_path)
         
         return full_path, mime_type, full_path.name
-    
+
+    async def get_file_content_as_text(
+        self, path: str, max_size: int = 512 * 1024
+    ) -> str:
+        """
+        Чтение файла как текст для превью (txt, конфиги, .env и т.д.).
+        Ограничение размера по умолчанию 512 КБ.
+        """
+        shared_dir, relative_path, full_path = self._resolve_path(path)
+        if not full_path.exists():
+            raise HTTPException(status_code=404, detail="File not found")
+        if not full_path.is_file():
+            raise HTTPException(status_code=400, detail="Path is not a file")
+        if not FileUtils.is_text_previewable(full_path):
+            raise HTTPException(
+                status_code=400,
+                detail="Text preview not supported for this file type",
+            )
+        size = full_path.stat().st_size
+        if size > max_size:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File too large for preview (max {max_size // 1024} KB)",
+            )
+        try:
+            raw = full_path.read_bytes()
+            return raw.decode("utf-8", errors="replace")
+        except (OSError, IOError) as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
     async def upload_file(
         self,

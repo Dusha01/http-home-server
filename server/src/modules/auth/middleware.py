@@ -5,7 +5,7 @@ from fastapi import Request, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 
-from src.modules.auth.service.auth_service import AuthService
+from src.modules.auth.services.auth_service import AuthService
 
 
 class TokenAuth(HTTPBearer):

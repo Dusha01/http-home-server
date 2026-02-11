@@ -53,6 +53,11 @@ class ValidateTokenResponse(BaseModel):
     message: Optional[str] = None
 
 
+class ValidateTokenRequest(BaseModel):
+    """Запрос на проверку токена"""
+    token: str
+
+
 class RevokeTokenRequest(BaseModel):
     """Запрос на отзыв токена"""
     token: str

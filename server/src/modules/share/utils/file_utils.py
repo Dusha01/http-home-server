@@ -16,7 +16,14 @@ class FileUtils:
         '.txt', '.md', '.py', '.js', '.html', '.css', '.json', '.xml', '.yml',
         '.ini', '.cfg', '.conf', '.log', '.csv', '.tsv', '.sql', '.sh', '.bat',
         '.ps1', '.rst', '.tex', '.latex', '.c', '.cpp', '.h', '.java', '.php',
-        '.rb', '.go', '.rs', '.swift', '.kt', '.scala', '.toml', '.yaml'
+        '.rb', '.go', '.rs', '.swift', '.kt', '.scala', '.toml', '.yaml',
+        '.env', '.example', '.config', '.gitignore', '.dockerignore',
+    }
+
+    # Имена файлов без расширения или с точкой в начале (превью как текст)
+    TEXT_PREVIEW_NAMES: Set[str] = {
+        '.env', '.env.example', '.env.local', '.env.sample',
+        '.config', '.gitignore', '.dockerignore', '.editorconfig',
     }
     
     IMAGE_EXTENSIONS: Set[str] = {
@@ -132,8 +139,21 @@ class FileUtils:
     def can_preview(file_path: Path) -> bool:
         """Можно ли показать предпросмотр файла"""
         extension = file_path.suffix.lower()
-        return (extension in FileUtils.PREVIEW_EXTENSIONS or 
+        return (extension in FileUtils.PREVIEW_EXTENSIONS or
                 extension in FileUtils.IMAGE_EXTENSIONS)
+
+    @staticmethod
+    def is_text_previewable(file_path: Path) -> bool:
+        """Подходит ли файл для текстового превью (в т.ч. .env, .config)."""
+        name = file_path.name.lower()
+        ext = file_path.suffix.lower()
+        if ext in FileUtils.PREVIEW_EXTENSIONS:
+            return True
+        if name in FileUtils.TEXT_PREVIEW_NAMES:
+            return True
+        if name.startswith('.env') or name.endswith('.example'):
+            return True
+        return False
     
 
     @staticmethod

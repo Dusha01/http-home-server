@@ -1,127 +1,92 @@
 """
-Основное приложение
+Точка входа приложения FastAPI.
 """
 import os
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import uvicorn
 import psutil
-import qrcode
-from io import StringIO
 
-from src.config import config
+from src.core.config import config
+from src.core.startup import (
+    print_banner,
+    print_token_display,
+    print_existing_tokens,
+    print_existing_token_with_qr,
+    print_shutdown,
+)
 from src.version import __version__
-from src.modules.auth.service.auth_service import AuthService
-from src.modules.auth.routes.routes import create_auth_router 
+from src.modules.auth.services.auth_service import AuthService
+from src.modules.auth.routes.routes import create_auth_router
 from src.modules.share.routes.routes import create_share_router
 from src.modules.share.services.directory_service import DirectoryService
 from src.modules.share.services.file_service import FileService
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Контекст жизненного цикла приложения"""
-    # Startup
-    print(f"\n{'='*60}")
-    print(f"🚀 Home File Server v{__version__}")
-    print(f"{'='*60}")
-    print(f"📡 Сервер запущен: http://{config.server_host}:{config.server_port}")
-    print(f"💾 Директория хранилища: {config.storage_dir}")
-    print(f"📁 Директория загрузок: {config.upload_dir}")
-    print(f"{'='*60}\n")
-    
+async def lifespan(app: FastAPI, auth_required: bool = True):
+    """Контекст жизненного цикла: инициализация сервисов и вывод в консоль."""
+    print_banner(auth_required)
     try:
         auth_service = AuthService(
-            server_url=f"http://{config.server_host}:{config.server_port}"
+            server_url=f"http://{config.server_host}:{config.server_port}",
         )
-        
         dir_service = DirectoryService(
-            storage_file=config.storage_dir / "shared_directories.json"
+            storage_file=config.storage_dir / "shared_directories.json",
         )
-        
         app.state.auth_service = auth_service
+        app.state.auth_required = auth_required
         app.state.directory_service = dir_service
-        app.state.file_service = FileService(dir_service)
-        
+        app.state.file_service = FileService(
+            dir_service,
+            default_root_path=config.storage_dir,
+        )
+
         token_count = len(auth_service.tokens)
-        
-        if token_count == 0:
+        if not auth_required:
+            print("⚠️  Режим без аутентификации: токен не запрашивается.\n")
+        elif token_count == 0:
             token_display = auth_service.generate_initial_token()
-            
-            print("\n" + "🔐"*30)
-            print("🔐 АДМИН-ДОСТУП: ТОКЕН СГЕНЕРИРОВАН")
-            print("🔐"*30 + "\n")
-            
-            print("📋 ТОКЕН (скопируйте для входа):")
-            print("-" * 50)
-            print(f"\033[1;32m{token_display.token}\033[0m")
-            print("-" * 50)
-            
-            print("\n📱 QR-КОД ДЛЯ БЫСТРОГО ВХОДА:")
-            print("-" * 50)
-            
-            try:          
-                qr = qrcode.QRCode(
-                    version=1,
-                    error_correction=qrcode.constants.ERROR_CORRECT_L,
-                    box_size=2,
-                    border=1
-                )
-                qr.add_data(token_display.auth_url)
-                f = StringIO()
-                qr.print_ascii(out=f, invert=False)
-                f.seek(0)
-                print(f.read())
-            except ImportError:
-                print(f"📲 QR-код доступен по ссылке:")
-                print(f"\033[1;36m{token_display.auth_url}\033[0m")
-            except Exception as e:
-                print(f"📲 QR-код: {token_display.auth_url}")
-            
-            print("-" * 50)
-            print(f"\n🌐 АДРЕС ДЛЯ ВХОДА:")
-            print(f"🔗 {token_display.auth_url}")
-            print(f"🏠 Локальный: http://{config.server_host}:{config.server_port}/auth/login")
-            
-            print("\n📱 ИНСТРУКЦИЯ:")
-            for instruction in token_display.instructions:
-                print(f"  {instruction}")
-            
-            print("\n⚠️  ВНИМАНИЕ: Токен будет показан только один раз!")
-            print("   Сохраните его в надежном месте.")
-            print("\n" + "🔐"*30 + "\n")
-            
+            print_token_display(token_display)
         else:
             try:
                 token_list = auth_service.list_tokens()
-                print(f"\n✅ Найдено активных токенов: {token_list.active_count}")
-                print(f"📊 Всего токенов: {token_list.total_count}")
+                print_existing_tokens(token_list.active_count, token_list.total_count)
+                first_active_token = next(
+                    (t for t, d in auth_service.tokens.items() if d.get("is_active", True)),
+                    None,
+                )
+                if first_active_token:
+                    existing = auth_service.get_token_with_qr(first_active_token)
+                    if existing:
+                        print_existing_token_with_qr(existing)
             except Exception as e:
                 print(f"\n⚠️ Ошибка при загрузке токенов: {e}")
-                print(f"📊 Количество токенов в хранилище: {token_count}")
-            
-            print(f"\n🔗 Страница входа: http://{config.server_host}:{config.server_port}/auth/login")
-            print("   Используйте существующий токен или создайте новый через /auth\n")
-            
+                print(f"📊 В хранилище: {token_count} токен(ов)\n")
     except Exception as e:
         print(f"⚠️  Предупреждение: {e}")
         print("   Сервис аутентификации временно недоступен\n")
-    
+
+    app.include_router(create_auth_router())
+    app.include_router(create_share_router())
+
     yield
-    
-    print("\n" + "="*60)
-    print("🛑 Сервер остановлен")
-    print("="*60 + "\n")
+    print_shutdown()
 
 
-def create_app() -> FastAPI:
-    """Фабрика создания приложения"""
+def create_app(auth_required: bool = True) -> FastAPI:
+    """Фабрика создания приложения. auth_required задаётся при запуске (консольный вопрос)."""
+    @asynccontextmanager
+    async def _lifespan(app: FastAPI):
+        async with lifespan(app, auth_required):
+            yield
+
     app = FastAPI(
         title="Home File Server",
         description="HTTP сервер для локального обмена файлами с поддержкой QR-аутентификации",
         version=__version__,
-        lifespan=lifespan,
+        lifespan=_lifespan,
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json"
@@ -140,11 +105,13 @@ def create_app() -> FastAPI:
     
     @app.get("/")
     async def root():
-        """Корневой эндпоинт"""
+        """Корневой эндпоинт (доступен без токена для проверки auth_required)"""
+        auth_required = getattr(app.state, "auth_required", True)
         return {
             "name": "Home File Server",
             "version": __version__,
             "status": "running",
+            "auth_required": auth_required,
             "endpoints": {
                 "web_interface": f"http://{config.server_host}:{config.server_port}/auth/login",
                 "documentation": f"http://{config.server_host}:{config.server_port}/docs",
@@ -155,7 +122,7 @@ def create_app() -> FastAPI:
                 }
             },
             "features": [
-                "🔐 Token authentication",
+                "🔐 Token authentication" if auth_required else "🔓 No authentication",
                 "📱 QR code login",
                 "📁 File sharing",
                 "📤 File upload",
@@ -191,29 +158,36 @@ def create_app() -> FastAPI:
         health_status["timestamp"] = datetime.now().isoformat()
         
         return health_status
-    
+
     return app
 
 
-app = create_app()
+def _run_with_prompt():
+    """Запуск с вопросом в консоли: генерировать токен аутентификации или нет."""
+    print("\n🔐 Настройка аутентификации при запуске сервера\n")
+    while True:
+        answer = input("Генерировать токен аутентификации? (y/n): ").strip().lower()
+        if answer in ("y", "yes", "д", "да"):
+            auth_required = True
+            break
+        if answer in ("n", "no", "н", "нет"):
+            auth_required = False
+            break
+        print("Введите y (да) или n (нет).")
+    return create_app(auth_required=auth_required)
 
-@app.on_event("startup")
-async def startup_event():
-    """Дополнительные действия при старте"""
-    app.include_router(create_auth_router(app.state.auth_service))
-    app.include_router(create_share_router(
-        app.state.directory_service,
-        app.state.file_service
-    ))
+
+app = create_app(auth_required=True)
 
 
 if __name__ == "__main__":
+    app = _run_with_prompt()
     uvicorn.run(
-        "main:app",
+        app,
         host=config.server_host,
         port=config.server_port,
         reload=config.debug,
         log_level="debug" if config.debug else "info",
         access_log=config.debug,
-        use_colors=True
+        use_colors=True,
     )

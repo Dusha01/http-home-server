@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ru">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Home server</title>
+		<script>
+			(function() {
+				var t = localStorage.getItem('theme');
+				if (t === 'dark')
+					document.documentElement.classList.add('dark');
+				else
+					document.documentElement.classList.add('light');
+			})();
+		</script>
+		%sveltekit.head%
+	</head>
+	<body data-sveltekit-preload-data="hover" class="antialiased">
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>

@@ -13,7 +13,7 @@ class AuthService:
     """Сервис для управления аутентификацией"""
     
     def __init__(self, tokens_file: Path = None):
-        self.tokens_file = tokens_file or config.STORAGE_DIR / "tokens.json"
+        self.tokens_file = tokens_file or config.storage_dir / "tokens.json"
         self.tokens: Dict[str, Dict[str, Any]] = self._load_tokens()
         self.generator = TokenGenerator()
         self.validator = TokenValidator()

@@ -1,7 +1,7 @@
 """
 Роуты для аутентификации
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 
 from src.modules.auth.service.auth_service import AuthService
 from src.modules.auth.models.auth_models import (

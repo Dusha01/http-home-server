@@ -101,14 +101,7 @@ class Settings(BaseSettings):
     def to_dict(self):
         """Возвращает конфигурацию в виде словаря"""
         return self.model_dump()
-    
 
-    class Config:
-        """Дополнительные настройки (для обратной совместимости)"""
-        @classmethod
-        def customise_sources(cls, init_settings, env_settings, file_secret_settings):
-            """Кастомизация источников настроек"""
-            return init_settings, env_settings, file_secret_settings
 
 
 # Создание глобального экземпляра настроек

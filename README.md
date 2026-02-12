@@ -31,6 +31,28 @@ On first run without a `.env` file, the server will ask in the console: **with t
 - **Node.js** 18+ и **npm**
 - **Python** 3.10+
 
+Если чего‑то не хватает, `./start.sh` подскажет команды установки для вашей ОС.
+
+If any of these are missing, `./start.sh` will suggest install commands for your OS.
+
+---
+
+## Вход по QR и камера / QR login and camera
+
+Страница входа позволяет отсканировать QR‑код с токеном камерой устройства. **Браузер даёт доступ к камере только в безопасном контексте:**
+
+The login page can scan a QR code with the device camera. **Browsers allow camera access only in a secure context:**
+
+- по **HTTPS** (например `https://ваш-сервер:8080`), или  
+- с **http://localhost** / **http://127.0.0.1** (доступ с того же компьютера, где запущен сервер).
+
+- over **HTTPS** (e.g. `https://your-server:8080`), or  
+- from **http://localhost** / **http://127.0.0.1** (when opening from the same machine where the server runs).
+
+При заходе по **http://IP** (например `http://192.168.1.5:8080`) с телефона или другого ПК камера в браузере недоступна — это ограничение безопасности браузера. В этом случае введите токен вручную в поле на странице входа.
+
+When opening **http://IP** (e.g. `http://192.168.1.5:8080`) from a phone or another PC, the browser will not allow camera access — this is a browser security restriction. In that case, enter the token manually on the login page.
+
 ---
 
 ## Переменные окружения / Environment variables

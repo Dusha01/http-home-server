@@ -51,7 +51,7 @@ def print_token_display(token_display) -> None:
     except Exception:
         print(f"📲 QR: \033[1;36m{token_display.auth_url}\033[0m")
     print("-" * 50)
-    login_url = f"http://{config.server_host}:{config.server_port}/auth/login"
+    login_url = f"{config.frontend_url.rstrip('/')}/auth/login"
     print(f"\n🌐 {t('token_display.address_label')}")
     print(f"🔗 {token_display.auth_url}")
     print(f"🏠 {t('token_display.local', url=login_url)}")
@@ -64,7 +64,7 @@ def print_token_display(token_display) -> None:
 
 
 def print_existing_tokens(active_count: int, total_count: int) -> None:
-    login_url = f"http://{config.server_host}:{config.server_port}/auth/login"
+    login_url = f"{config.frontend_url.rstrip('/')}/auth/login"
     print(f"\n✅ {t('existing_tokens.found_active', count=active_count)}")
     print(f"📊 {t('existing_tokens.total', total=total_count)}")
     print(f"\n🔗 {t('existing_tokens.login_page', url=login_url)}")
@@ -99,7 +99,7 @@ def print_existing_token_with_qr(token_display) -> None:
     except Exception:
         print(f"📲 QR: \033[1;36m{token_display.auth_url}\033[0m")
     print("-" * 50)
-    login_url = f"http://{config.server_host}:{config.server_port}/auth/login"
+    login_url = f"{config.frontend_url.rstrip('/')}/auth/login"
     print(f"\n🌐 {t('token_display.address_label')}")
     print(f"🔗 {token_display.auth_url}")
     print(f"🏠 {t('token_display.local', url=login_url)}")
@@ -107,6 +107,17 @@ def print_existing_token_with_qr(token_display) -> None:
     for line in instructions:
         print(f"  {line}")
     print("\n" + "🔐" * 30 + "\n")
+
+
+def print_no_auth_info() -> None:
+    """Вывод подсказок при запуске без аутентификации."""
+    frontend_url = config.frontend_url.rstrip("/")
+    api_url = f"http://{config.server_host}:{config.server_port}"
+    print(f"\n⚠️  {t('no_auth.title')}")
+    print(f"   {t('no_auth.description')}\n")
+    print(f"🌐 {t('no_auth.frontend', url=frontend_url)}")
+    print(f"📡 {t('no_auth.api', url=api_url)}")
+    print(f"\n💡 {t('no_auth.enable_next')}\n")
 
 
 def print_shutdown() -> None:

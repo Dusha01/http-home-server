@@ -13,6 +13,7 @@ from src.core.startup import (
     print_token_display,
     print_existing_tokens,
     print_existing_token_with_qr,
+    print_no_auth_info,
     print_shutdown,
 )
 from src.version import __version__
@@ -34,6 +35,7 @@ async def lifespan(app: FastAPI, auth_required: bool = True):
     try:
         auth_service = AuthService(
             server_url=f"http://{config.server_host}:{config.server_port}",
+            frontend_url=config.frontend_url,
         )
         dir_service = DirectoryService(
             storage_file=config.storage_dir / "shared_directories.json",
@@ -48,7 +50,7 @@ async def lifespan(app: FastAPI, auth_required: bool = True):
 
         token_count = len(auth_service.tokens)
         if not auth_required:
-            print(f"⚠️  {t('lifespan.no_auth')}\n")
+            print_no_auth_info()
         elif token_count == 0:
             token_display = auth_service.generate_initial_token(
                 description=t("auth.initial_token_description"),
@@ -117,13 +119,14 @@ def create_app(auth_required: bool = True) -> FastAPI:
             auth_required = getattr(app.state, "auth_required", True)
             base = f"http://{config.server_host}:{config.server_port}"
             auth_prefix = "/api" if static_resolved else ""
+            login_page = f"{config.frontend_url.rstrip('/')}/auth/login" if not (static_resolved and static_resolved.is_dir()) else f"{base}{auth_prefix}/auth/login"
             return {
                 "name": "Home File Server",
                 "version": __version__,
                 "status": "running",
                 "auth_required": auth_required,
                 "endpoints": {
-                    "web_interface": f"{base}{auth_prefix}/auth/login",
+                    "web_interface": login_page,
                     "documentation": f"{base}/docs",
                     "api": {
                         "auth": f"{auth_prefix}/auth",

@@ -28,6 +28,8 @@ class Settings(BaseSettings):
 
     server_host: str = Field(default="0.0.0.0")
     server_port: int = Field(default=8080, ge=1, le=65535)
+    # URL фронтенда (страница входа). Используется в QR и в выводе в консоль.
+    frontend_url: str = Field(default="http://localhost:5173", description="Frontend (login page) URL, e.g. http://localhost:5173")
     debug: bool = Field(default=False)
     language: str = Field(default="ru", description="UI/console language: ru, en (env: LANGUAGE or LANG)")
 

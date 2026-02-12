@@ -6,10 +6,52 @@ set -e
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT"
 
+# Проверка зависимостей и подсказки по установке
+# Dependency check and install suggestions
+missing=()
+command -v node >/dev/null 2>&1 || missing+=(node)
+command -v npm  >/dev/null 2>&1 || missing+=(npm)
+command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1 || missing+=(python)
+
+if [ ${#missing[@]} -gt 0 ]; then
+	echo "Home Server — не хватает зависимостей / missing dependencies: ${missing[*]}"
+	echo ""
+	echo "Установите их одним из способов ниже, затем снова запустите ./start.sh"
+	echo "Install them using one of the options below, then run ./start.sh again"
+	echo ""
+	# Node.js (включает npm на официальном установщике)
+	if [[ " ${missing[*]} " =~ " node " ]] || [[ " ${missing[*]} " =~ " npm " ]]; then
+		echo "  Node.js 18+ и npm:"
+		if command -v apt-get >/dev/null 2>&1; then
+			echo "    Debian/Ubuntu:  sudo apt-get update && sudo apt-get install -y nodejs npm"
+		elif command -v dnf >/dev/null 2>&1; then
+			echo "    Fedora/RHEL:    sudo dnf install -y nodejs npm"
+		elif command -v brew >/dev/null 2>&1; then
+			echo "    macOS (Homebrew):  brew install node"
+		else
+			echo "    https://nodejs.org/ — скачайте LTS и установите"
+			echo "    https://nodejs.org/ — download LTS and install"
+		fi
+		echo ""
+	fi
+	if [[ " ${missing[*]} " =~ " python " ]]; then
+		echo "  Python 3.10+:"
+		if command -v apt-get >/dev/null 2>&1; then
+			echo "    Debian/Ubuntu:  sudo apt-get update && sudo apt-get install -y python3 python3-pip"
+		elif command -v dnf >/dev/null 2>&1; then
+			echo "    Fedora/RHEL:    sudo dnf install -y python3 python3-pip"
+		elif command -v brew >/dev/null 2>&1; then
+			echo "    macOS (Homebrew):  brew install python@3"
+		else
+			echo "    https://www.python.org/downloads/ — установите Python 3.10 или новее"
+			echo "    https://www.python.org/downloads/ — install Python 3.10 or newer"
+		fi
+		echo ""
+	fi
+	exit 1
+fi
+
 echo "Home Server — проверка окружения / checking environment..."
-command -v node >/dev/null 2>&1 || { echo "Ошибка: нужен Node.js (Error: Node.js required)"; exit 1; }
-command -v npm >/dev/null 2>&1 || { echo "Ошибка: нужен npm (Error: npm required)"; exit 1; }
-command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1 || { echo "Ошибка: нужен Python 3 (Error: Python 3 required)"; exit 1; }
 PYTHON="$(command -v python3 2>/dev/null || command -v python)"
 
 echo "Установка зависимостей фронтенда / Installing frontend dependencies..."

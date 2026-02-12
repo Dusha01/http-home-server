@@ -36,6 +36,14 @@ export const translations: Record<Locale, Record<string, string>> = {
 		'auth.checkError': 'Ошибка проверки токена',
 		'auth.checking': 'Проверка…',
 		'auth.signIn': 'Войти',
+		'auth.scanQR': 'Сканировать QR-код',
+		'auth.scanQRTitle': 'Сканирование QR-кода',
+		'auth.scanSuccess': 'Код распознан',
+		'auth.scanInstruction': 'Наведите камеру на QR-код с токеном (например, с экрана сервера)',
+		'auth.cameraError': 'Не удалось получить доступ к камере',
+		'auth.cameraHelp': 'Разрешите доступ к камере в настройках браузера или введите токен вручную.',
+		'auth.cameraSecureContext': 'Камера доступна только по HTTPS или с localhost.',
+		'auth.cameraSecureContextHelp': 'Откройте сайт по HTTPS или с этого устройства по http://localhost, либо введите токен вручную.',
 
 		'header.settings': 'Настройки',
 		'header.themeDark': 'Включить тёмную тему',
@@ -59,6 +67,11 @@ export const translations: Record<Locale, Record<string, string>> = {
 		'workspace.deleteError': 'Ошибка удаления',
 
 		'layout.title': 'Home Server — облачная папка',
+
+		'error.title': 'Ошибка',
+		'error.generic': 'Что-то пошло не так.',
+		'error.notFound': 'Страница не найдена',
+		'error.notFoundDescription': 'Запрашиваемая страница не существует.',
 	},
 	en: {
 		'common.loading': 'Loading…',
@@ -91,6 +104,14 @@ export const translations: Record<Locale, Record<string, string>> = {
 		'auth.checkError': 'Token validation error',
 		'auth.checking': 'Checking…',
 		'auth.signIn': 'Sign in',
+		'auth.scanQR': 'Scan QR code',
+		'auth.scanQRTitle': 'Scan QR code',
+		'auth.scanSuccess': 'Code recognized',
+		'auth.scanInstruction': 'Point the camera at the QR code with the token (e.g. from the server screen)',
+		'auth.cameraError': 'Could not access camera',
+		'auth.cameraHelp': 'Allow camera access in browser settings or enter the token manually.',
+		'auth.cameraSecureContext': 'Camera is only available over HTTPS or from localhost.',
+		'auth.cameraSecureContextHelp': 'Open the site over HTTPS or from this device at http://localhost, or enter the token manually.',
 
 		'header.settings': 'Settings',
 		'header.themeDark': 'Enable dark theme',
@@ -114,5 +135,10 @@ export const translations: Record<Locale, Record<string, string>> = {
 		'workspace.deleteError': 'Delete error',
 
 		'layout.title': 'Home Server — cloud folder',
+
+		'error.title': 'Error',
+		'error.generic': 'Something went wrong.',
+		'error.notFound': 'Page not found',
+		'error.notFoundDescription': 'The page you are looking for does not exist.',
 	},
 };

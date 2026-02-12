@@ -20,13 +20,14 @@ from src.core.config import config
 class AuthService:
     """Сервис для управления аутентификацией."""
 
-    def __init__(self, tokens_file: Path = None, server_url: Optional[str] = None):
+    def __init__(self, tokens_file: Path = None, server_url: Optional[str] = None, frontend_url: Optional[str] = None):
         self.tokens_file = tokens_file or config.storage_dir / "tokens.json"
         self.tokens: Dict[str, Dict[str, Any]] = self._load_tokens()
         self.generator = TokenGenerator()
         self.validator = TokenValidator()
         self.qr_utils = QRUtils()
         self.server_url = server_url or self._detect_server_url()
+        self.frontend_url = (frontend_url or getattr(config, "frontend_url", None) or self.server_url).rstrip("/")
 
     def _detect_server_url(self) -> str:
         try:
@@ -79,7 +80,7 @@ class AuthService:
         token, _ = self.generate_token(
             description=description or "Initial server token",
         )
-        auth_url = self.qr_utils.generate_auth_url(token, self.server_url)
+        auth_url = self.qr_utils.generate_auth_url(token, self.frontend_url)
         qr_code = self.qr_utils.generate_qr_code(auth_url)
         return TokenDisplayResponse(
             token=token,
@@ -117,7 +118,7 @@ class AuthService:
         if token not in self.tokens:
             return None
         token_data = self.tokens[token]
-        auth_url = self.qr_utils.generate_auth_url(token, self.server_url)
+        auth_url = self.qr_utils.generate_auth_url(token, self.frontend_url)
         qr_code = self.qr_utils.generate_qr_code(auth_url)
         return TokenWithQRResponse(
             token=token,

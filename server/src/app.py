@@ -23,6 +23,7 @@ from src.modules.share.services.directory_service import DirectoryService
 from src.modules.share.services.file_service import FileService
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 
 @asynccontextmanager
@@ -72,8 +73,9 @@ async def lifespan(app: FastAPI, auth_required: bool = True):
         print(f"⚠️  {t('lifespan.warning', e=e)}")
         print(f"   {t('lifespan.auth_unavailable')}\n")
 
-    app.include_router(create_auth_router())
-    app.include_router(create_share_router())
+    api_prefix = "/api" if config.static_dir else ""
+    app.include_router(create_auth_router(), prefix=api_prefix)
+    app.include_router(create_share_router(), prefix=api_prefix)
 
     yield
     print_shutdown()
@@ -106,36 +108,40 @@ def create_app(auth_required: bool = True) -> FastAPI:
     
     config.storage_dir.mkdir(parents=True, exist_ok=True)
     config.upload_dir.mkdir(parents=True, exist_ok=True)
-    
-    @app.get("/")
-    async def root():
-        """Корневой эндпоинт (доступен без токена для проверки auth_required)"""
-        auth_required = getattr(app.state, "auth_required", True)
-        return {
-            "name": "Home File Server",
-            "version": __version__,
-            "status": "running",
-            "auth_required": auth_required,
-            "endpoints": {
-                "web_interface": f"http://{config.server_host}:{config.server_port}/auth/login",
-                "documentation": f"http://{config.server_host}:{config.server_port}/docs",
-                "api": {
-                    "auth": "/auth",
-                    "share": "/share",
-                    "health": "/health"
-                }
-            },
-            "features": [
-                "🔐 Token authentication" if auth_required else "🔓 No authentication",
-                "📱 QR code login",
-                "📁 File sharing",
-                "📤 File upload",
-                "📥 File download",
-                "📂 Directory browsing",
-                "🔍 Search files"
-            ]
-        }
-    
+
+    static_resolved = config.static_dir.resolve() if config.static_dir else None
+    if not static_resolved or not static_resolved.is_dir():
+        @app.get("/")
+        async def root():
+            """Корневой эндпоинт (доступен без токена для проверки auth_required)"""
+            auth_required = getattr(app.state, "auth_required", True)
+            base = f"http://{config.server_host}:{config.server_port}"
+            auth_prefix = "/api" if static_resolved else ""
+            return {
+                "name": "Home File Server",
+                "version": __version__,
+                "status": "running",
+                "auth_required": auth_required,
+                "endpoints": {
+                    "web_interface": f"{base}{auth_prefix}/auth/login",
+                    "documentation": f"{base}/docs",
+                    "api": {
+                        "auth": f"{auth_prefix}/auth",
+                        "share": f"{auth_prefix}/share",
+                        "health": "/health"
+                    }
+                },
+                "features": [
+                    "🔐 Token authentication" if auth_required else "🔓 No authentication",
+                    "📱 QR code login",
+                    "📁 File sharing",
+                    "📤 File upload",
+                    "📥 File download",
+                    "📂 Directory browsing",
+                    "🔍 Search files"
+                ]
+            }
+
     @app.get("/health")
     async def health_check():
         """Проверка здоровья сервера"""
@@ -160,8 +166,27 @@ def create_app(auth_required: bool = True) -> FastAPI:
         
         from datetime import datetime
         health_status["timestamp"] = datetime.now().isoformat()
-        
+
         return health_status
+
+    # Режим релиза: отдаём собранный фронтенд (SPA) с корня
+    if static_resolved and static_resolved.is_dir():
+        index_path = static_resolved / "index.html"
+        if index_path.exists():
+            @app.get("/{full_path:path}")
+            async def serve_spa(full_path: str):
+                if full_path.startswith("api/") or full_path == "api":
+                    from fastapi import HTTPException
+                    raise HTTPException(404)
+                path = (static_resolved / full_path).resolve()
+                if path.is_file() and path.exists():
+                    try:
+                        path.relative_to(static_resolved)
+                    except ValueError:
+                        from fastapi import HTTPException
+                        raise HTTPException(404)
+                    return FileResponse(path)
+                return FileResponse(index_path)
 
     return app
 

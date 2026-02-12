@@ -1,13 +1,16 @@
 """
 Запуск сервера: python -m src
-Спрашивает в консоли про генерацию токена, затем стартует uvicorn.
+Если задан AUTH_REQUIRED в .env — использует его; иначе спрашивает в консоли.
 """
-from src.app import _run_with_prompt
+from src.app import create_app, _run_with_prompt
 from src.core.config import config
 import uvicorn
 
 if __name__ == "__main__":
-    app = _run_with_prompt()
+    if config.auth_required is not None:
+        app = create_app(auth_required=config.auth_required)
+    else:
+        app = _run_with_prompt()
     uvicorn.run(
         app,
         host=config.server_host,

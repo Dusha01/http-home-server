@@ -2,7 +2,7 @@
 Конфигурация приложения (Pydantic Settings).
 Пути заданы относительно корня проекта (папка server).
 """
-from typing import Set, List
+from typing import Set, List, Optional
 from pathlib import Path
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     server_port: int = Field(default=8080, ge=1, le=65535)
     debug: bool = Field(default=False)
     language: str = Field(default="ru", description="UI/console language: ru, en (env: LANGUAGE or LANG)")
+
+    # Если задано — не спрашивать в консоли, использовать это значение. Иначе — интерактивный выбор.
+    # If set — skip console prompt and use this value. Otherwise — interactive choice.
+    auth_required: Optional[bool] = Field(default=None, description="Require token auth: true/false (env: AUTH_REQUIRED)")
+    # Путь к собранному фронтенду (статике). Если задан — API под /api, корень отдаёт SPA.
+    # Path to built frontend (static). If set — API under /api, root serves SPA.
+    static_dir: Optional[Path] = Field(default=None, description="Path to frontend build (env: STATIC_DIR)")
 
     secret_key: str = Field(default="your-secret-key-change-in-production")
     token_expiry_hours: int = Field(default=24, ge=1)
@@ -62,6 +69,24 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return v.lower() in ("true", "1", "yes", "on")
         return bool(v)
+
+    @field_validator("auth_required", mode="before")
+    @classmethod
+    def validate_auth_required(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, str):
+            return v.lower() in ("true", "1", "yes", "on")
+        return bool(v)
+
+    @field_validator("static_dir", mode="before")
+    @classmethod
+    def validate_static_dir(cls, v):
+        if v is None or v == "":
+            return None
+        if isinstance(v, str):
+            return Path(v)
+        return v
 
     @field_validator("max_file_size", mode="before")
     @classmethod

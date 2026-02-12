@@ -69,3 +69,53 @@ export async function setServerRootPath(path: string, token: string | null): Pro
 	await api.post<TransmitterRootResponse>('/share/root-path', { path: normalized || '/' }, token);
 	return normalized === '.' ? '/' : normalized || '/';
 }
+
+/** Ответ загрузки файла */
+export interface UploadResponse {
+	success: boolean;
+	message: string;
+	filename: string;
+	size: number;
+	path: string;
+}
+
+/**
+ * Загрузить один файл в указанную директорию.
+ * Требует авторизации.
+ */
+export async function uploadFile(
+	directoryPath: string,
+	file: File,
+	overwrite: boolean,
+	token: string | null
+): Promise<UploadResponse> {
+	const params = new URLSearchParams({
+		directory: directoryPath,
+		overwrite: String(overwrite)
+	});
+	const formData = new FormData();
+	formData.append('file', file);
+	return api.postForm<UploadResponse>(`/share/upload?${params}`, formData, token);
+}
+
+/**
+ * Создать папку в указанном пути.
+ */
+export async function createDirectory(
+	parentPath: string,
+	name: string,
+	token: string | null
+): Promise<{ success: boolean; message: string; data?: { file_info?: unknown } }> {
+	return api.post('/share/directory', { path: parentPath, name }, token);
+}
+
+/**
+ * Удалить файл или папку.
+ */
+export async function deletePath(
+	path: string,
+	recursive: boolean,
+	token: string | null
+): Promise<{ success: boolean; message: string; data?: unknown }> {
+	return api.delete('/share/delete', { path, recursive }, token);
+}

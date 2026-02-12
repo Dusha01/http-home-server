@@ -50,5 +50,20 @@ export const api = {
 			method: 'POST',
 			body: body ? JSON.stringify(body) : undefined,
 			token
+		}),
+
+	/** POST with FormData (e.g. file upload). Do not set Content-Type so browser sets multipart boundary. */
+	postForm: <T>(path: string, formData: FormData, token?: string | null) =>
+		request<T>(path, {
+			method: 'POST',
+			body: formData,
+			token
+		}),
+
+	delete: <T>(path: string, body?: object, token?: string | null) =>
+		request<T>(path, {
+			method: 'DELETE',
+			body: body ? JSON.stringify(body) : undefined,
+			token
 		})
 };

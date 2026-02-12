@@ -1,23 +1,20 @@
 <script lang="ts">
 	import type { FileInfo } from '$lib/entities/file';
-	import { isTextPreviewable } from '$lib/entities/file/preview';
+	import { isTextPreviewable, isImagePreviewable, isVideoPreviewable, getFileIconType, type FileIconType } from '$lib/entities/file/preview';
 	import { t } from '$lib/shared/locale';
 
 	interface Props {
 		directories: FileInfo[];
 		files: FileInfo[];
 		currentPath: string;
-		/** Родительская папка из API — для кнопки «Назад» (корректно для абсолютных путей и Windows). */
 		parentPath?: string | null;
-		/** Корневая папка из настроек: при совпадении с currentPath кнопку «Назад» не показываем (не подниматься выше). */
 		rootPath?: string | null;
 		onOpenDir: (path: string) => void;
-		/** Клик по строке файла: открыть превью (для текстовых) или ничего */
 		onPreview?: (path: string, name: string) => void;
-		/** Клик по иконке загрузки: скачать файл */
 		onDownload?: (path: string) => void;
+		onDelete?: (path: string, isDirectory: boolean) => void;
 	}
-	let { directories, files, currentPath, parentPath = null, rootPath = null, onOpenDir, onPreview, onDownload }: Props = $props();
+	let { directories, files, currentPath, parentPath = null, rootPath = null, onOpenDir, onPreview, onDownload, onDelete }: Props = $props();
 
 	function formatSize(bytes: number): string {
 		if (bytes < 1024) return `${bytes} B`;
@@ -49,7 +46,24 @@
 	}
 
 	function canPreview(item: FileInfo) {
-		return isTextPreviewable(item.name, item.extension ?? null);
+		return isTextPreviewable(item.name, item.extension ?? null) ||
+			isImagePreviewable(item.name, item.extension ?? null) ||
+			isVideoPreviewable(item.name, item.extension ?? null);
+	}
+
+	function getIcon(type: FileIconType): string {
+		const icons: Record<FileIconType, string> = {
+			folder: '📁',
+			image: '🖼️',
+			video: '🎬',
+			audio: '🎵',
+			archive: '📦',
+			pdf: '📕',
+			config: '⚙️',
+			text: '📄',
+			default: '📄'
+		};
+		return icons[type] ?? icons.default;
 	}
 </script>
 
@@ -66,15 +80,33 @@
 	{/if}
 	<ul class="divide-y divide-slate-100 dark:divide-gray-600">
 		{#each directories as item}
-			<li>
+			<li class="group flex items-center gap-3 px-4 py-2 hover:bg-slate-50 dark:hover:bg-gray-600/80 min-w-0">
 				<button
 					type="button"
-					class="flex w-full items-center gap-3 px-4 py-2 text-left hover:bg-slate-50 dark:hover:bg-gray-600/80"
+					class="flex min-w-0 flex-1 items-center gap-3 text-left"
 					onclick={() => onOpenDir(item.path)}
 				>
-					<span class="text-2xl" aria-hidden="true">📁</span>
-					<span class="font-medium text-slate-800 dark:text-gray-200">{item.name}</span>
+					<span class="text-2xl shrink-0" aria-hidden="true">{getIcon('folder')}</span>
+					<span class="font-medium text-slate-800 dark:text-gray-200 truncate" title={item.name}>{item.name}</span>
 				</button>
+				{#if onDelete}
+					<button
+						type="button"
+						class="file-action-btn shrink-0 min-w-[2.25rem] rounded p-1.5 text-slate-500 dark:text-gray-400 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-600 dark:hover:text-red-400"
+						aria-label={t('workspace.deleteFile') + ' ' + item.name}
+						onclick={(e) => {
+							e.stopPropagation();
+							onDelete?.(item.path, true);
+						}}
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<polyline points="3 6 5 6 21 6" />
+							<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+							<line x1="10" y1="11" x2="10" y2="17" />
+							<line x1="14" y1="11" x2="14" y2="17" />
+						</svg>
+					</button>
+				{/if}
 			</li>
 		{/each}
 		{#each files as item}
@@ -84,7 +116,7 @@
 					class="flex min-w-0 flex-1 items-center gap-3 text-left"
 					onclick={() => canPreview(item) && onPreview?.(item.path, item.name)}
 				>
-					<span class="text-xl shrink-0" aria-hidden="true">📄</span>
+					<span class="text-xl shrink-0" aria-hidden="true">{getIcon(getFileIconType(item.name, item.extension ?? null))}</span>
 					<span class="min-w-0 flex-1 truncate text-slate-700 dark:text-gray-300" title={item.name}>
 						{item.name}
 					</span>
@@ -94,8 +126,8 @@
 				</button>
 				<button
 					type="button"
-					class="file-download-btn shrink-0 min-w-[2.25rem] rounded p-1.5 text-slate-500 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-gray-500 hover:text-slate-700 dark:hover:text-gray-200"
-					aria-label="Скачать {item.name}"
+					class="file-action-btn shrink-0 min-w-[2.25rem] rounded p-1.5 text-slate-500 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-gray-500 hover:text-slate-700 dark:hover:text-gray-200"
+					aria-label={t('workspace.downloadFile').replace('{name}', item.name)}
 					onclick={(e) => {
 						e.stopPropagation();
 						onDownload?.(item.path);
@@ -107,6 +139,24 @@
 						<line x1="12" y1="15" x2="12" y2="3" />
 					</svg>
 				</button>
+				{#if onDelete}
+					<button
+						type="button"
+						class="file-action-btn shrink-0 min-w-[2.25rem] rounded p-1.5 text-slate-500 dark:text-gray-400 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-600 dark:hover:text-red-400"
+						aria-label={t('workspace.deleteFile') + ' ' + item.name}
+						onclick={(e) => {
+							e.stopPropagation();
+							onDelete?.(item.path, false);
+						}}
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<polyline points="3 6 5 6 21 6" />
+							<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+							<line x1="10" y1="11" x2="10" y2="17" />
+							<line x1="14" y1="11" x2="14" y2="17" />
+						</svg>
+					</button>
+				{/if}
 			</li>
 		{/each}
 	</ul>
@@ -116,17 +166,17 @@
 </div>
 
 <style>
-	.file-download-btn {
+	.file-action-btn {
 		opacity: 0;
 		pointer-events: none;
 		transition: opacity 0.15s ease;
 	}
-	:global(.group:hover) .file-download-btn {
+	:global(.group:hover) .file-action-btn {
 		opacity: 1;
 		pointer-events: auto;
 	}
 	@media (max-width: 1024px) {
-		.file-download-btn {
+		.file-action-btn {
 			opacity: 1;
 			pointer-events: auto;
 		}

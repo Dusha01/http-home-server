@@ -7,3 +7,24 @@ export const API_BASE =
 	typeof import.meta.env !== 'undefined' && import.meta.env.VITE_API_URL
 		? (import.meta.env.VITE_API_URL as string).replace(/\/$/, '')
 		: '/api';
+
+/** Ключ localStorage для пути папки из настроек (папка транслятора). */
+export const FOLDER_PATH_STORAGE_KEY = 'home-server-folder-path';
+
+/** Событие при смене сохранённой папки в настройках (чтобы workspace обновил отображение). */
+export const FOLDER_PATH_CHANGED_EVENT = 'home-server-folder-path-changed';
+
+/** Открыто с основного сервера (localhost) — только там можно менять путь к папке. На клиентах опция недоступна. */
+export function isMainServer(): boolean {
+	if (typeof document === 'undefined') return false;
+	const h = window.location.hostname;
+	return h === 'localhost' || h === '127.0.0.1';
+}
+
+export function getStoredFolderPath(): string {
+	if (typeof document === 'undefined') return '/';
+	if (!isMainServer()) return '/';
+	const raw = localStorage.getItem(FOLDER_PATH_STORAGE_KEY) || '/';
+	const normalized = raw.replace(/\\/g, '/').replace(/\/+/g, '/').trim().replace(/\/$/, '') || '/';
+	return normalized === '.' ? '/' : normalized || '/';
+}

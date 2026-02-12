@@ -2,7 +2,10 @@
 Роуты для работы с общими файлами и директориями.
 Сервисы и аутентификация через Depends.
 """
+import json
 import os
+import string
+from pathlib import Path
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
@@ -28,6 +31,11 @@ from src.modules.share.models.file_models import (
     CreateDirectoryRequest,
     RenameRequest,
     DeleteRequest,
+    ExplorerRootItem,
+    ExplorerDirItem,
+    ExplorerListResponse,
+    TransmitterRootResponse,
+    TransmitterRootRequest,
 )
 from src.modules.share.utils.file_utils import FileUtils
 
@@ -277,6 +285,105 @@ def create_share_router() -> APIRouter:
         """Превью текстового файла (без обязательной авторизации)."""
         content = await file_service.get_file_content_as_text(path)
         return PlainTextResponse(content)
+
+    # ============= ПРОВОДНИК (ФАЙЛОВАЯ СИСТЕМА ПК) =============
+
+    @router.get("/explorer/roots", response_model=List[ExplorerRootItem])
+    async def explorer_roots(
+        _: Optional[str] = Depends(get_token_if_required),
+    ):
+        """Корневые пункты для выбора папки: диски (Windows) или корень/домашняя папка (Linux)."""
+        roots: List[ExplorerRootItem] = []
+        if os.name == "nt":
+            for letter in string.ascii_uppercase:
+                drive = f"{letter}:\\"
+                if os.path.exists(drive):
+                    roots.append(ExplorerRootItem(path=drive, name=f"Локальный диск ({letter}:)"))
+        else:
+            roots.append(ExplorerRootItem(path="/", name="Корень системы"))
+            try:
+                home = str(Path.home())
+                if home != "/":
+                    roots.append(ExplorerRootItem(path=home, name="Домашняя папка"))
+            except RuntimeError:
+                pass
+        return roots
+
+    @router.get("/explorer/list", response_model=ExplorerListResponse)
+    async def explorer_list(
+        path: str = Query(..., description="Абсолютный путь к папке на сервере"),
+        _: Optional[str] = Depends(get_token_if_required),
+    ):
+        """Список подпапок по абсолютному пути (файловая система ПК, где запущен сервер)."""
+        resolved = Path(path).expanduser().resolve()
+        if not resolved.exists():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Path not found")
+        if not resolved.is_dir():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not a directory")
+        parent_path: Optional[str] = None
+        if resolved.parent != resolved:
+            parent_path = str(resolved.parent)
+        directories: List[ExplorerDirItem] = []
+        try:
+            for item in sorted(resolved.iterdir(), key=lambda p: p.name.lower()):
+                if item.is_dir():
+                    directories.append(ExplorerDirItem(path=str(item), name=item.name))
+        except PermissionError:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied")
+        return ExplorerListResponse(
+            path=str(resolved),
+            parent_path=parent_path,
+            directories=directories,
+        )
+
+    # ============= ПАПКА ТРАНСЛЯТОРА (ОБЩИЙ КОРЕНЬ ДЛЯ ВСЕХ В СЕТИ) =============
+
+    _transmitter_root_file = config.storage_dir / "transmitter_root_path.json"
+
+    def _read_transmitter_root() -> str:
+        if _transmitter_root_file.exists():
+            try:
+                with open(_transmitter_root_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    return (data.get("path") or "/").strip() or "/"
+            except (json.JSONDecodeError, OSError):
+                pass
+        return "/"
+
+    def _write_transmitter_root(path: str) -> None:
+        path = (path or "/").strip() or "/"
+        with open(_transmitter_root_file, "w", encoding="utf-8") as f:
+            json.dump({"path": path}, f, ensure_ascii=False)
+
+    @router.get("/root-path", response_model=TransmitterRootResponse)
+    async def get_transmitter_root(
+        _: Optional[str] = Depends(get_optional_token),
+    ):
+        """Путь папки транслятора — доступен всем в сети (с токеном или без)."""
+        return TransmitterRootResponse(path=_read_transmitter_root())
+
+    @router.post("/root-path", response_model=TransmitterRootResponse)
+    async def set_transmitter_root(
+        request: TransmitterRootRequest,
+        _: Optional[str] = Depends(get_token_if_required),
+    ):
+        """Установить папку транслятора (только с авторизацией, обычно с основного сервера)."""
+        path = (request.path or "").strip().replace("\\", "/").rstrip("/") or "/"
+        if path != "/":
+            resolved = Path(path).expanduser().resolve()
+            if not resolved.exists():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Path does not exist: {resolved}",
+                )
+            if not resolved.is_dir():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Path is not a directory",
+                )
+            path = str(resolved)
+        _write_transmitter_root(path)
+        return TransmitterRootResponse(path=path)
 
     # ============= СТАТИСТИКА И КОНФИГУРАЦИЯ =============
 

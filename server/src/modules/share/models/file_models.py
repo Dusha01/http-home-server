@@ -124,3 +124,38 @@ class DeleteRequest(BaseModel):
     """Запрос на удаление"""
     path: str
     recursive: bool = False
+
+
+# ============= ПРОВОДНИК (ФАЙЛОВАЯ СИСТЕМА ПК) =============
+
+
+class ExplorerRootItem(BaseModel):
+    """Корневой пункт для выбора папки (диск или корень)."""
+    path: str
+    name: str
+
+
+class ExplorerDirItem(BaseModel):
+    """Элемент списка директорий в проводнике."""
+    path: str
+    name: str
+
+
+class ExplorerListResponse(BaseModel):
+    """Ответ списка папок по абсолютному пути."""
+    path: str
+    parent_path: Optional[str] = None
+    directories: List[ExplorerDirItem] = []
+
+
+# ============= ПАПКА ТРАНСЛЯТОРА (ОБЩИЙ КОРЕНЬ ДЛЯ ВСЕХ КЛИЕНТОВ) =============
+
+
+class TransmitterRootResponse(BaseModel):
+    """Ответ с путём папки транслятора (корень рабочей области для всех в сети)."""
+    path: str
+
+
+class TransmitterRootRequest(BaseModel):
+    """Запрос на установку папки транслятора."""
+    path: str

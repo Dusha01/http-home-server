@@ -103,4 +103,10 @@
 		opacity: 1;
 		pointer-events: auto;
 	}
+	@media (max-width: 1024px) {
+		.file-download-btn {
+			opacity: 1;
+			pointer-events: auto;
+		}
+	}
 </style>

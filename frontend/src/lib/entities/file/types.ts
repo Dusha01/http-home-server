@@ -23,3 +23,22 @@ export interface DirectoryContent {
 	files: FileInfo[];
 	total_items: number;
 }
+
+/** Корневой пункт проводника (диск или корень системы). */
+export interface ExplorerRootItem {
+	path: string;
+	name: string;
+}
+
+/** Элемент списка папок в проводнике. */
+export interface ExplorerDirItem {
+	path: string;
+	name: string;
+}
+
+/** Ответ GET /share/explorer/list — список папок по абсолютному пути. */
+export interface ExplorerListResponse {
+	path: string;
+	parent_path: string | null;
+	directories: ExplorerDirItem[];
+}

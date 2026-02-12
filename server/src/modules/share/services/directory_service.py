@@ -7,7 +7,6 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from threading import Lock
 
-from ..models.file_models import SharedDirectory, ShareRequest
 from src.modules.share.models.file_models import SharedDirectory, ShareRequest
 
 
@@ -47,7 +46,7 @@ class DirectoryService:
             data = {}
             for dir_id, directory in self.directories.items():
                 # Конвертируем datetime в строку для JSON
-                dir_dict = directory.dict()
+                dir_dict = directory.model_dump()
                 if isinstance(dir_dict['added_at'], datetime):
                     dir_dict['added_at'] = dir_dict['added_at'].isoformat()
                 data[dir_id] = dir_dict

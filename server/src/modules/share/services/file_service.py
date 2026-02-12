@@ -58,6 +58,30 @@ class FileService:
 
         shared_dir = self.directory_service.get_directory_by_path(path)
 
+        # Абсолютный путь с ПК (из настроек/проводника): директория или файл внутри такой папки
+        if not shared_dir and path.is_absolute() and path.exists():
+            if path.is_dir():
+                virtual = SharedDirectory(
+                    id="absolute",
+                    name=path.name or "Folder",
+                    path=str(path),
+                    description="Выбранная папка (абсолютный путь)",
+                )
+                return virtual, Path(""), path
+            if path.is_file():
+                parent = path.parent
+                virtual = SharedDirectory(
+                    id="absolute",
+                    name=parent.name or "Folder",
+                    path=str(parent),
+                    description="Выбранная папка (абсолютный путь)",
+                )
+                try:
+                    rel = path.relative_to(parent)
+                except ValueError:
+                    rel = Path(path.name)
+                return virtual, rel, path
+
         if not shared_dir and self.default_root_path:
             if not self.default_root_path.exists():
                 self.default_root_path.mkdir(parents=True, exist_ok=True)
@@ -120,9 +144,31 @@ class FileService:
         directories, files = FileUtils.get_directory_content(
             full_path, base_path, show_hidden
         )
+
+        # Для абсолютного пути (папка из настроек) возвращаем полные пути, чтобы фронт мог переходить по подпапкам.
+        # Ограничение «не подниматься выше выбранной папки» реализуется на фронте по сохранённому корню.
+        if getattr(shared_dir, "id", None) == "absolute":
+            path_str = str(full_path)
+            parent_str = str(full_path.parent) if full_path != full_path.parent else None
+            dirs_with_paths = [
+                FileInfo(**(d.model_dump() | {"path": str(base_path / d.path)}))
+                for d in directories
+            ]
+            files_with_paths = [
+                FileInfo(**(f.model_dump() | {"path": str(base_path / f.path)}))
+                for f in files
+            ]
+            return DirectoryContent(
+                current_path=path_str,
+                parent_path=parent_str,
+                directories=dirs_with_paths,
+                files=files_with_paths,
+                total_items=len(dirs_with_paths) + len(files_with_paths),
+            )
         
+        path_display = relative_path.as_posix() if str(relative_path) and str(relative_path) != "." else "/"
         return DirectoryContent.from_lists(
-            path=relative_path.as_posix() if str(relative_path) else "/",
+            path=path_display,
             dirs=directories,
             files=files
         )
@@ -242,9 +288,13 @@ class FileService:
             base_path = Path(shared_dir.path).resolve()
             file_info = FileUtils.get_file_info(file_path, base_path)
             
+            try:
+                rel_path = file_path.relative_to(base_path)
+            except ValueError:
+                rel_path = file_path
             return {
                 "filename": file_path.name,
-                "path": str(file_path.relative_to(base_path) if file_path.relative_to(base_path) else file_path),
+                "path": str(rel_path),
                 "size": len(content),
                 "mime_type": FileUtils.get_mime_type(file_path),
                 "file_info": file_info

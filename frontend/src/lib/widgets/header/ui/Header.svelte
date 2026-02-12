@@ -1,5 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import SettingsModal from './SettingsModal.svelte';
+	import {
+		getStoredFolderPath,
+		FOLDER_PATH_STORAGE_KEY,
+		FOLDER_PATH_CHANGED_EVENT
+	} from '$lib/shared/config';
+	import { setServerRootPath } from '$lib/features/workspace';
+	import { getStoredToken } from '$lib/features/auth';
 
 	export type Theme = 'light' | 'dark';
 
@@ -33,6 +41,29 @@
 
 	/** Слот для дополнительных кнопок в шапке (настройки, уведомления и т.д.) */
 	let actions: import('svelte').Snippet | undefined = $props();
+
+	let settingsOpen = $state(false);
+
+	function openSettings() {
+		settingsOpen = true;
+	}
+
+	function closeSettings() {
+		settingsOpen = false;
+	}
+
+	async function saveFolderPath(path: string) {
+		const p = (path || '/').trim() || '/';
+		try {
+			await setServerRootPath(p, getStoredToken());
+		} catch {
+			// без токена или при ошибке сети — сохраняем только локально
+		}
+		localStorage.setItem(FOLDER_PATH_STORAGE_KEY, p);
+		window.dispatchEvent(
+			new CustomEvent(FOLDER_PATH_CHANGED_EVENT, { detail: p })
+		);
+	}
 </script>
 
 <header
@@ -54,12 +85,12 @@
 					{@render actions()}
 				{/if}
 
-				<!-- Кнопка: настройки (заглушка для будущего функционала) -->
+				<!-- Кнопка: настройки -->
 				<button
 					type="button"
 					class="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-900"
 					aria-label="Настройки"
-					onclick={() => console.log('Open settings')}
+					onclick={openSettings}
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -117,5 +148,12 @@
 		</div>
 	</div>
 </header>
+
+<SettingsModal
+	open={settingsOpen}
+	initialPath={settingsOpen ? getStoredFolderPath() : ''}
+	onClose={closeSettings}
+	onSave={saveFolderPath}
+/>
 
 <div class="h-16" aria-hidden="true"></div>

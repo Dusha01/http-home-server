@@ -5,6 +5,7 @@
     import {fetchServerInfo, getStoredToken} from "$lib";
     import {WorkspaceLayout} from "$lib";
     import {Header} from "$lib";
+    import { t } from '$lib/shared/locale';
 
     let showWorkspace = $state(false);
     let loading = $state(true);
@@ -29,7 +30,7 @@
 <div class="flex h-screen flex-col">
     {#if loading}
         <div class="flex flex-1 items-center justify-center">
-            <p class="text-slate-600">Загрузка…</p>
+            <p class="text-slate-600">{t('common.loading')}</p>
         </div>
     {:else if showWorkspace}
         <Header/>

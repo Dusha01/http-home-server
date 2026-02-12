@@ -6,6 +6,7 @@
 		FOLDER_PATH_STORAGE_KEY,
 		FOLDER_PATH_CHANGED_EVENT
 	} from '$lib/shared/config';
+	import { t } from '$lib/shared/locale';
 	import { setServerRootPath } from '$lib/features/workspace';
 	import { getStoredToken } from '$lib/features/auth';
 
@@ -89,7 +90,7 @@
 				<button
 					type="button"
 					class="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-900"
-					aria-label="Настройки"
+					aria-label={t('header.settings')}
 					onclick={openSettings}
 				>
 					<svg
@@ -113,7 +114,7 @@
 				<button
 					type="button"
 					class="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-900"
-					aria-label={theme === 'light' ? 'Включить тёмную тему' : 'Включить светлую тему'}
+					aria-label={theme === 'light' ? t('header.themeDark') : t('header.themeLight')}
 					onclick={toggleTheme}
 				>
 					{#if theme === 'light'}

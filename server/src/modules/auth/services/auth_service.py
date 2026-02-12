@@ -75,8 +75,10 @@ class AuthService:
         self._save_tokens()
         return token, token_data
 
-    def generate_initial_token(self) -> TokenDisplayResponse:
-        token, _ = self.generate_token(description="Initial server token")
+    def generate_initial_token(self, description: Optional[str] = None) -> TokenDisplayResponse:
+        token, _ = self.generate_token(
+            description=description or "Initial server token",
+        )
         auth_url = self.qr_utils.generate_auth_url(token, self.server_url)
         qr_code = self.qr_utils.generate_qr_code(auth_url)
         return TokenDisplayResponse(

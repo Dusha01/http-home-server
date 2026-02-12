@@ -2,6 +2,7 @@
 	import { fetchExplorerRoots, fetchExplorerList } from '$lib/features/workspace';
 	import { getStoredToken } from '$lib/features/auth';
 	import { isMainServer } from '$lib/shared/config';
+	import { localeStore, t, type Locale } from '$lib/shared/locale';
 	import type { ExplorerRootItem, ExplorerDirItem, ExplorerListResponse } from '$lib/entities/file';
 
 	interface Props {
@@ -47,9 +48,9 @@
 		pickerError = '';
 		try {
 			pickerRoots = await fetchExplorerRoots(token);
-			if (!pickerRoots?.length) pickerError = 'Нет доступных корневых папок';
+			if (!pickerRoots?.length) pickerError = t('settings.noRoots');
 		} catch (e) {
-			pickerError = e instanceof Error ? e.message : 'Ошибка загрузки';
+			pickerError = e instanceof Error ? e.message : t('settings.loadError');
 			pickerRoots = null;
 		} finally {
 			pickerLoading = false;
@@ -64,7 +65,7 @@
 		try {
 			pickerContent = await fetchExplorerList(path, token);
 		} catch (e) {
-			pickerError = e instanceof Error ? e.message : 'Ошибка загрузки';
+			pickerError = e instanceof Error ? e.message : t('settings.loadError');
 			pickerContent = null;
 		} finally {
 			pickerLoading = false;
@@ -125,6 +126,15 @@
 			else onClose();
 		}
 	}
+
+	let currentLocale = $state<Locale>('ru');
+	$effect(() => {
+		return localeStore.subscribe((v) => {
+			currentLocale = v;
+		});
+	});
+
+	const labelLanguage = $derived(t('settings.language'));
 </script>
 
 {#if open}
@@ -145,12 +155,12 @@
 		>
 			<div class="flex items-center justify-between gap-3 border-b border-slate-200 dark:border-gray-600 px-4 py-3">
 				<h2 id="settings-modal-title" class="text-lg font-semibold text-slate-800 dark:text-gray-200">
-					Настройки
+					{t('settings.title')}
 				</h2>
 				<button
 					type="button"
 					class="shrink-0 rounded p-2 text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-700"
-					aria-label="Закрыть"
+					aria-label={t('common.close')}
 					onclick={onClose}
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -159,31 +169,58 @@
 				</button>
 			</div>
 
-			<div class="min-h-0 flex-1 overflow-auto p-4">
+			<div class="min-h-0 flex-1 overflow-auto p-4 space-y-6">
+				<!-- Смена языка -->
+				<div class="flex flex-col gap-2" role="group" aria-labelledby="settings-locale-label">
+					<span id="settings-locale-label" class="block text-sm font-medium text-slate-700 dark:text-gray-300">
+						{labelLanguage}
+					</span>
+					<div class="flex gap-2">
+						<button
+							type="button"
+							class="rounded-lg border px-4 py-2 text-sm font-medium transition-colors {currentLocale === 'ru'
+								? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-500 dark:bg-sky-900/30 dark:text-sky-300'
+								: 'border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-600'}"
+							onclick={() => localeStore.setLocale('ru')}
+						>
+							{t('settings.language_ru')}
+						</button>
+						<button
+							type="button"
+							class="rounded-lg border px-4 py-2 text-sm font-medium transition-colors {currentLocale === 'en'
+								? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-500 dark:bg-sky-900/30 dark:text-sky-300'
+								: 'border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-600'}"
+							onclick={() => localeStore.setLocale('en')}
+						>
+							{t('settings.language_en')}
+						</button>
+					</div>
+				</div>
+
 				{#if showPicker}
 					<!-- Проводник: файловая система ПК -->
 					<div class="flex flex-col gap-3">
 						<p class="text-sm text-slate-600 dark:text-gray-400">
-							Выберите любую папку на компьютере, где запущен сервер (диск → папка → …).
+							{t('settings.pickerHint')}
 						</p>
 						<div class="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-700/50 px-3 py-2">
 							<button
 								type="button"
 								class="shrink-0 rounded p-1.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-gray-600"
-								aria-label="Назад"
+								aria-label={t('common.back')}
 								onclick={pickerGoBack}
 							>
 								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 									<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
 								</svg>
 							</button>
-							<span class="text-sm font-mono text-slate-700 dark:text-gray-300 truncate min-w-0" title={pickerPath || 'Корни системы'}>
-								{pickerView === 'roots' ? 'Корни системы' : pickerPath || '—'}
+							<span class="text-sm font-mono text-slate-700 dark:text-gray-300 truncate min-w-0" title={pickerPath || t('settings.rootsTitle')}>
+								{pickerView === 'roots' ? t('settings.rootsTitle') : pickerPath || '—'}
 							</span>
 						</div>
 						<div class="min-h-[200px] rounded-lg border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-700/50 overflow-auto">
 							{#if pickerLoading}
-								<p class="p-4 text-slate-500 dark:text-gray-400">Загрузка…</p>
+								<p class="p-4 text-slate-500 dark:text-gray-400">{t('common.loading')}</p>
 							{:else if pickerError}
 								<p class="p-4 text-red-600 dark:text-red-400">{pickerError}</p>
 							{:else if pickerView === 'roots' && pickerRoots}
@@ -218,7 +255,7 @@
 									{/each}
 								</ul>
 								{#if pickerContent.directories.length === 0}
-									<p class="p-4 text-slate-500 dark:text-gray-400">Нет вложенных папок</p>
+									<p class="p-4 text-slate-500 dark:text-gray-400">{t('settings.noSubfolders')}</p>
 								{/if}
 							{/if}
 						</div>
@@ -229,7 +266,7 @@
 									class="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-600"
 									onclick={selectCurrentFolder}
 								>
-									Выбрать эту папку
+									{t('settings.selectFolder')}
 								</button>
 							{/if}
 							<button
@@ -237,7 +274,7 @@
 								class="rounded-lg border border-slate-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-700"
 								onclick={closePicker}
 							>
-								Отмена
+								{t('common.cancel')}
 							</button>
 						</div>
 					</div>
@@ -245,17 +282,17 @@
 					<!-- Поле пути и кнопка обзора — только на основном сервере (localhost) -->
 					<div class="flex flex-col gap-4">
 						<label for="settings-folder-path" class="block text-sm font-medium text-slate-700 dark:text-gray-300">
-							Папка транслятора
+							{t('settings.transmitterFolder')}
 						</label>
 						<p class="text-sm text-slate-500 dark:text-gray-400">
-							Введите абсолютный путь к папке на ПК (например <code class="rounded bg-slate-100 dark:bg-gray-700 px-1">C:\Users\Имя\Папка</code> или <code class="rounded bg-slate-100 dark:bg-gray-700 px-1">/home/user/папка</code>) или выберите через проводник.
+							{t('settings.folderPathHint')}
 						</p>
 						<div class="flex gap-2">
 							<input
 								id="settings-folder-path"
 								type="text"
 								class="min-w-0 flex-1 rounded-lg border border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-slate-800 dark:text-gray-200 placeholder-slate-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-								placeholder="C:\ или /home/..."
+								placeholder={t('settings.folderPathPlaceholder')}
 								bind:value={pathInput}
 							/>
 							<button
@@ -266,14 +303,13 @@
 								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 									<path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
 								</svg>
-								Обзор
+								{t('settings.browse')}
 							</button>
 						</div>
 					</div>
 				{:else}
-					<!-- На клиентах (не localhost) опция смены пути недоступна -->
 					<p class="text-sm text-slate-600 dark:text-gray-400">
-						Путь к папке для просмотра файлов можно изменить только на основном сервере (при открытии с <code class="rounded bg-slate-100 dark:bg-gray-700 px-1">localhost</code>).
+						{t('settings.pathOnlyOnMain')}
 					</p>
 				{/if}
 			</div>
@@ -286,14 +322,14 @@
 							class="rounded-lg border border-slate-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-700"
 							onclick={onClose}
 						>
-							Отмена
+							{t('common.cancel')}
 						</button>
 						<button
 							type="button"
 							class="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-600"
 							onclick={handleSave}
 						>
-							Сохранить
+							{t('common.save')}
 						</button>
 					{:else}
 						<button
@@ -301,7 +337,7 @@
 							class="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-600"
 							onclick={onClose}
 						>
-							Закрыть
+							{t('common.close')}
 						</button>
 					{/if}
 				</div>

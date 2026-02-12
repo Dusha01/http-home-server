@@ -11,6 +11,8 @@
 					document.documentElement.classList.add('dark');
 				else
 					document.documentElement.classList.add('light');
+				var loc = localStorage.getItem('home-server-locale');
+				document.documentElement.lang = (loc === 'en') ? 'en' : 'ru';
 			})();
 		</script>
 		%sveltekit.head%

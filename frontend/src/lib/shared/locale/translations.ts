@@ -1,0 +1,98 @@
+/**
+ * Словари переводов интерфейса (ru / en).
+ * Ключи в формате section.key; в строках плейсхолдеры {name}, {path} и т.д.
+ */
+import type { Locale } from './store';
+
+export const translations: Record<Locale, Record<string, string>> = {
+	ru: {
+		'common.loading': 'Загрузка…',
+		'common.close': 'Закрыть',
+		'common.cancel': 'Отмена',
+		'common.save': 'Сохранить',
+		'common.back': 'Назад',
+		'common.refresh': 'Обновить',
+
+		'settings.title': 'Настройки',
+		'settings.language': 'Язык',
+		'settings.language_ru': 'Русский',
+		'settings.language_en': 'English',
+		'settings.transmitterFolder': 'Папка транслятора',
+		'settings.folderPathHint': 'Введите абсолютный путь к папке на ПК (например C:\\Users\\Имя\\Папка или /home/user/папка) или выберите через проводник.',
+		'settings.folderPathPlaceholder': 'C:\\ или /home/...',
+		'settings.browse': 'Обзор',
+		'settings.pathOnlyOnMain': 'Путь к папке для просмотра файлов можно изменить только на основном сервере (при открытии с localhost).',
+		'settings.selectFolder': 'Выбрать эту папку',
+		'settings.pickerHint': 'Выберите любую папку на компьютере, где запущен сервер (диск → папка → …).',
+		'settings.rootsTitle': 'Корни системы',
+		'settings.noRoots': 'Нет доступных корневых папок',
+		'settings.loadError': 'Ошибка загрузки',
+		'settings.noSubfolders': 'Нет вложенных папок',
+
+		'auth.loginTitle': 'Вход в облачную папку',
+		'auth.tokenPlaceholder': 'Токен доступа',
+		'auth.enterToken': 'Введите токен',
+		'auth.invalidToken': 'Неверный токен',
+		'auth.checkError': 'Ошибка проверки токена',
+		'auth.checking': 'Проверка…',
+		'auth.signIn': 'Войти',
+
+		'header.settings': 'Настройки',
+		'header.themeDark': 'Включить тёмную тему',
+		'header.themeLight': 'Включить светлую тему',
+
+		'home.connectError': 'Не удалось подключиться к серверу',
+
+		'workspace.path': 'Путь:',
+		'workspace.downloadError': 'Ошибка скачивания',
+		'workspace.emptyFolder': 'Папка пуста',
+		'workspace.downloadFile': 'Скачать {name}',
+
+		'layout.title': 'Home Server — облачная папка',
+	},
+	en: {
+		'common.loading': 'Loading…',
+		'common.close': 'Close',
+		'common.cancel': 'Cancel',
+		'common.save': 'Save',
+		'common.back': 'Back',
+		'common.refresh': 'Refresh',
+
+		'settings.title': 'Settings',
+		'settings.language': 'Language',
+		'settings.language_ru': 'Русский',
+		'settings.language_en': 'English',
+		'settings.transmitterFolder': 'Transmitter folder',
+		'settings.folderPathHint': 'Enter the absolute path to a folder on your PC (e.g. C:\\Users\\Name\\Folder or /home/user/folder) or select it via the browser.',
+		'settings.folderPathPlaceholder': 'C:\\ or /home/...',
+		'settings.browse': 'Browse',
+		'settings.pathOnlyOnMain': 'The folder path for viewing files can only be changed on the main server (when opening from localhost).',
+		'settings.selectFolder': 'Select this folder',
+		'settings.pickerHint': 'Select any folder on the computer where the server is running (drive → folder → …).',
+		'settings.rootsTitle': 'System roots',
+		'settings.noRoots': 'No root folders available',
+		'settings.loadError': 'Load error',
+		'settings.noSubfolders': 'No subfolders',
+
+		'auth.loginTitle': 'Sign in to cloud folder',
+		'auth.tokenPlaceholder': 'Access token',
+		'auth.enterToken': 'Enter token',
+		'auth.invalidToken': 'Invalid token',
+		'auth.checkError': 'Token validation error',
+		'auth.checking': 'Checking…',
+		'auth.signIn': 'Sign in',
+
+		'header.settings': 'Settings',
+		'header.themeDark': 'Enable dark theme',
+		'header.themeLight': 'Enable light theme',
+
+		'home.connectError': 'Could not connect to server',
+
+		'workspace.path': 'Path:',
+		'workspace.downloadError': 'Download error',
+		'workspace.emptyFolder': 'Folder is empty',
+		'workspace.downloadFile': 'Download {name}',
+
+		'layout.title': 'Home Server — cloud folder',
+	},
+};

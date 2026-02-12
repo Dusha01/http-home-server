@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     server_host: str = Field(default="0.0.0.0")
     server_port: int = Field(default=8080, ge=1, le=65535)
     debug: bool = Field(default=False)
+    language: str = Field(default="ru", description="UI/console language: ru, en (env: LANGUAGE or LANG)")
 
     secret_key: str = Field(default="your-secret-key-change-in-production")
     token_expiry_hours: int = Field(default=24, ge=1)

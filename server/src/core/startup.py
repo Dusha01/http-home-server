@@ -6,6 +6,7 @@ import qrcode
 from io import StringIO
 
 from src.core.config import config
+from src.i18n import t
 from src.version import __version__
 
 
@@ -13,23 +14,27 @@ def print_banner(auth_required: bool) -> None:
     print(f"\n{'='*60}")
     print(f"🚀 Home File Server v{__version__}")
     print(f"{'='*60}")
-    print(f"📡 Сервер запущен: http://{config.server_host}:{config.server_port}")
-    print(f"💾 Директория хранилища: {config.storage_dir}")
-    print(f"📁 Директория загрузок: {config.upload_dir}")
-    print(f"🔐 Аутентификация: {'включена' if auth_required else 'отключена'}")
+    print(f"📡 {t('banner.server_started', host=config.server_host, port=config.server_port)}")
+    print(f"💾 {t('banner.storage_dir', path=config.storage_dir)}")
+    print(f"📁 {t('banner.upload_dir', path=config.upload_dir)}")
+    auth_msg = t("banner.auth_on") if auth_required else t("banner.auth_off")
+    print(f"🔐 {auth_msg}")
     print(f"{'='*60}\n")
 
 
 def print_token_display(token_display) -> None:
     """Вывод токена и QR в консоль (token_display — TokenDisplayResponse)."""
+    from src.i18n import get_locale
+    locale = get_locale()
+    instructions = locale.get_instructions_token_display()
     print("\n" + "🔐" * 30)
-    print("🔐 АДМИН-ДОСТУП: ТОКЕН СГЕНЕРИРОВАН")
+    print(f"🔐 {t('token_display.header')}")
     print("🔐" * 30 + "\n")
-    print("📋 ТОКЕН (скопируйте для входа):")
+    print(f"📋 {t('token_display.token_label')}")
     print("-" * 50)
     print(f"\033[1;32m{token_display.token}\033[0m")
     print("-" * 50)
-    print("\n📱 QR-КОД ДЛЯ БЫСТРОГО ВХОДА:")
+    print(f"\n📱 {t('token_display.qr_label')}")
     print("-" * 50)
     try:
         qr = qrcode.QRCode(
@@ -46,39 +51,38 @@ def print_token_display(token_display) -> None:
     except Exception:
         print(f"📲 QR: \033[1;36m{token_display.auth_url}\033[0m")
     print("-" * 50)
-    print(f"\n🌐 АДРЕС ДЛЯ ВХОДА:")
+    login_url = f"http://{config.server_host}:{config.server_port}/auth/login"
+    print(f"\n🌐 {t('token_display.address_label')}")
     print(f"🔗 {token_display.auth_url}")
-    print(f"🏠 Локальный: http://{config.server_host}:{config.server_port}/auth/login")
-    print("\n📱 ИНСТРУКЦИЯ:")
-    for instruction in token_display.instructions:
+    print(f"🏠 {t('token_display.local', url=login_url)}")
+    print(f"\n📱 {t('token_display.instruction_title')}")
+    for instruction in instructions:
         print(f"  {instruction}")
-    print("\n⚠️  ВНИМАНИЕ: Токен будет показан только один раз!")
-    print("   Сохраните его в надежном месте.")
+    print(f"\n⚠️  {t('token_display.warning_once')}")
+    print(f"   {t('token_display.warning_save')}")
     print("\n" + "🔐" * 30 + "\n")
 
 
 def print_existing_tokens(active_count: int, total_count: int) -> None:
-    print(f"\n✅ Найдено активных токенов: {active_count}")
-    print(f"📊 Всего токенов: {total_count}")
-    print(f"\n🔗 Страница входа: http://{config.server_host}:{config.server_port}/auth/login")
-    print("   Используйте существующий токен или создайте новый через /auth\n")
+    login_url = f"http://{config.server_host}:{config.server_port}/auth/login"
+    print(f"\n✅ {t('existing_tokens.found_active', count=active_count)}")
+    print(f"📊 {t('existing_tokens.total', total=total_count)}")
+    print(f"\n🔗 {t('existing_tokens.login_page', url=login_url)}")
+    print(f"   {t('existing_tokens.use_existing')}\n")
 
 
 def print_existing_token_with_qr(token_display) -> None:
     """Вывод уже сохранённого токена и QR (объект с .token, .auth_url)."""
-    instructions = [
-        "1. Отсканируйте QR-код камерой телефона",
-        "2. Или введите токен вручную в веб-интерфейсе",
-        "3. Токен уже сохранён на сервере, показывается при каждом запуске",
-    ]
+    from src.i18n import get_locale
+    instructions = get_locale().get_instructions_existing_qr()
     print("\n" + "🔐" * 30)
-    print("🔐 ТОКЕН ДОСТУПА (существующий)")
+    print(f"🔐 {t('existing_qr.header')}")
     print("🔐" * 30 + "\n")
-    print("📋 ТОКЕН (скопируйте для входа):")
+    print(f"📋 {t('token_display.token_label')}")
     print("-" * 50)
     print(f"\033[1;32m{token_display.token}\033[0m")
     print("-" * 50)
-    print("\n📱 QR-КОД ДЛЯ БЫСТРОГО ВХОДА:")
+    print(f"\n📱 {t('token_display.qr_label')}")
     print("-" * 50)
     try:
         qr = qrcode.QRCode(
@@ -95,10 +99,11 @@ def print_existing_token_with_qr(token_display) -> None:
     except Exception:
         print(f"📲 QR: \033[1;36m{token_display.auth_url}\033[0m")
     print("-" * 50)
-    print(f"\n🌐 АДРЕС ДЛЯ ВХОДА:")
+    login_url = f"http://{config.server_host}:{config.server_port}/auth/login"
+    print(f"\n🌐 {t('token_display.address_label')}")
     print(f"🔗 {token_display.auth_url}")
-    print(f"🏠 Локальный: http://{config.server_host}:{config.server_port}/auth/login")
-    print("\n📱 ИНСТРУКЦИЯ:")
+    print(f"🏠 {t('token_display.local', url=login_url)}")
+    print(f"\n📱 {t('token_display.instruction_title')}")
     for line in instructions:
         print(f"  {line}")
     print("\n" + "🔐" * 30 + "\n")
@@ -106,5 +111,5 @@ def print_existing_token_with_qr(token_display) -> None:
 
 def print_shutdown() -> None:
     print("\n" + "=" * 60)
-    print("🛑 Сервер остановлен")
+    print(f"🛑 {t('shutdown.stopped')}")
     print("=" * 60 + "\n")

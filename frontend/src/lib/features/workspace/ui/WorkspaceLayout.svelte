@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { API_BASE, getStoredFolderPath, FOLDER_PATH_CHANGED_EVENT } from '$lib/shared/config';
+	import { t } from '$lib/shared/locale';
 	import FileList from './FileList.svelte';
 
 	import { fetchDirectoryContent, fetchPreview, fetchServerRootPath } from '../api/api';
@@ -43,7 +44,7 @@
 		try {
 			content = await fetchDirectoryContent(path, token);
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Ошибка загрузки';
+			error = e instanceof Error ? e.message : t('settings.loadError');
 			content = null;
 		} finally {
 			loading = false;
@@ -74,7 +75,7 @@
 				previewError = '';
 			})
 			.catch((e) => {
-				previewError = e instanceof Error ? e.message : 'Ошибка загрузки';
+				previewError = e instanceof Error ? e.message : t('settings.loadError');
 			})
 			.finally(() => {
 				previewLoading = false;
@@ -108,7 +109,7 @@
 				a.click();
 				URL.revokeObjectURL(a.href);
 			} catch (e) {
-				downloadError = e instanceof Error ? e.message : 'Ошибка скачивания';
+				downloadError = e instanceof Error ? e.message : t('workspace.downloadError');
 				setTimeout(() => (downloadError = ''), 4000);
 			}
 		} else {
@@ -140,7 +141,7 @@
 
 <div class="flex h-full flex-col gap-4 rounded-xl bg-slate-50/80 dark:bg-gray-800/90 p-4 transition-colors duration-200">
 	{#if loading && !content}
-		<p class="text-slate-500 dark:text-gray-400">Загрузка…</p>
+		<p class="text-slate-500 dark:text-gray-400">{t('common.loading')}</p>
 	{:else if error}
 		<p class="text-red-600 dark:text-red-400">{error}</p>
 	{:else if content}
@@ -148,7 +149,7 @@
 			<p class="text-sm text-red-600 dark:text-red-400">{downloadError}</p>
 		{/if}
 		<div class="text-sm text-slate-500 dark:text-gray-400">
-			Путь: <span class="font-mono text-slate-700 dark:text-gray-300">{content.current_path}</span>
+			{t('workspace.path')} <span class="font-mono text-slate-700 dark:text-gray-300">{content.current_path}</span>
 		</div>
 		<FileList
 			directories={content.directories}
@@ -183,7 +184,7 @@
 				<button
 					type="button"
 					class="shrink-0 rounded p-2 text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-700"
-					aria-label="Закрыть"
+					aria-label={t('common.close')}
 					onclick={closePreview}
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -193,7 +194,7 @@
 			</div>
 			<div class="min-h-0 flex-1 overflow-auto p-4">
 				{#if previewLoading}
-					<p class="text-slate-500 dark:text-gray-400">Загрузка…</p>
+					<p class="text-slate-500 dark:text-gray-400">{t('common.loading')}</p>
 				{:else if previewError}
 					<p class="text-red-600 dark:text-red-400">{previewError}</p>
 				{:else}

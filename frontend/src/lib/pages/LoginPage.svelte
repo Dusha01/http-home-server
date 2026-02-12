@@ -3,6 +3,7 @@
     import {goto} from "$app/navigation";
 
     import { fetchServerInfo, getStoredToken, LoginForm } from "$lib";
+    import { t } from '$lib/shared/locale';
 
     let showForm = $state(false);
     let loading = $state(true);
@@ -26,7 +27,7 @@
 
 <div class="flex min-h-screen items-center justify-center p-4">
     {#if loading}
-        <p class="text-slate-600">Загрузка…</p>
+        <p class="text-slate-600">{t('common.loading')}</p>
     {:else if showForm}
         <LoginForm />
     {/if}

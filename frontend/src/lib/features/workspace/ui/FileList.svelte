@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { FileInfo } from '$lib/entities/file';
 	import { isTextPreviewable } from '$lib/entities/file/preview';
+	import { t } from '$lib/shared/locale';
 
 	interface Props {
 		directories: FileInfo[];
@@ -60,7 +61,7 @@
 			onclick={goParent}
 		>
 			<span class="text-lg">↩</span>
-			<span>Назад</span>
+			<span>{t('common.back')}</span>
 		</button>
 	{/if}
 	<ul class="divide-y divide-slate-100 dark:divide-gray-600">
@@ -110,7 +111,7 @@
 		{/each}
 	</ul>
 	{#if directories.length === 0 && files.length === 0}
-		<p class="p-4 text-slate-500 dark:text-gray-400">Папка пуста</p>
+		<p class="p-4 text-slate-500 dark:text-gray-400">{t('workspace.emptyFolder')}</p>
 	{/if}
 </div>
 

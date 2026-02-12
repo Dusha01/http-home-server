@@ -7,6 +7,7 @@ import uvicorn
 import psutil
 
 from src.core.config import config
+from src.i18n import set_locale, t
 from src.core.startup import (
     print_banner,
     print_token_display,
@@ -27,6 +28,7 @@ from fastapi.middleware.cors import CORSMiddleware
 @asynccontextmanager
 async def lifespan(app: FastAPI, auth_required: bool = True):
     """Контекст жизненного цикла: инициализация сервисов и вывод в консоль."""
+    set_locale(config.language)
     print_banner(auth_required)
     try:
         auth_service = AuthService(
@@ -45,16 +47,18 @@ async def lifespan(app: FastAPI, auth_required: bool = True):
 
         token_count = len(auth_service.tokens)
         if not auth_required:
-            print("⚠️  Режим без аутентификации: токен не запрашивается.\n")
+            print(f"⚠️  {t('lifespan.no_auth')}\n")
         elif token_count == 0:
-            token_display = auth_service.generate_initial_token()
+            token_display = auth_service.generate_initial_token(
+                description=t("auth.initial_token_description"),
+            )
             print_token_display(token_display)
         else:
             try:
                 token_list = auth_service.list_tokens()
                 print_existing_tokens(token_list.active_count, token_list.total_count)
                 first_active_token = next(
-                    (t for t, d in auth_service.tokens.items() if d.get("is_active", True)),
+                    (tok for tok, d in auth_service.tokens.items() if d.get("is_active", True)),
                     None,
                 )
                 if first_active_token:
@@ -62,11 +66,11 @@ async def lifespan(app: FastAPI, auth_required: bool = True):
                     if existing:
                         print_existing_token_with_qr(existing)
             except Exception as e:
-                print(f"\n⚠️ Ошибка при загрузке токенов: {e}")
-                print(f"📊 В хранилище: {token_count} токен(ов)\n")
+                print(f"\n⚠️ {t('lifespan.error_tokens', e=e)}")
+                print(f"📊 {t('lifespan.tokens_in_storage', count=token_count)}\n")
     except Exception as e:
-        print(f"⚠️  Предупреждение: {e}")
-        print("   Сервис аутентификации временно недоступен\n")
+        print(f"⚠️  {t('lifespan.warning', e=e)}")
+        print(f"   {t('lifespan.auth_unavailable')}\n")
 
     app.include_router(create_auth_router())
     app.include_router(create_share_router())
@@ -164,16 +168,17 @@ def create_app(auth_required: bool = True) -> FastAPI:
 
 def _run_with_prompt():
     """Запуск с вопросом в консоли: генерировать токен аутентификации или нет."""
-    print("\n🔐 Настройка аутентификации при запуске сервера\n")
+    set_locale(config.language)
+    print(f"\n🔐 {t('prompt.setup')}\n")
     while True:
-        answer = input("Генерировать токен аутентификации? (y/n): ").strip().lower()
+        answer = input(t("prompt.question")).strip().lower()
         if answer in ("y", "yes", "д", "да"):
             auth_required = True
             break
         if answer in ("n", "no", "н", "нет"):
             auth_required = False
             break
-        print("Введите y (да) или n (нет).")
+        print(t("prompt.invalid"))
     return create_app(auth_required=auth_required)
 
 

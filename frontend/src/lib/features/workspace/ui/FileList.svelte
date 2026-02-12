@@ -47,12 +47,15 @@
 
 	function canPreview(item: FileInfo) {
 		return isTextPreviewable(item.name, item.extension ?? null) ||
-			isImagePreviewable(item.name, item.extension ?? null) ||
-			isVideoPreviewable(item.name, item.extension ?? null);
+				isImagePreviewable(item.name, item.extension ?? null) ||
+				isVideoPreviewable(item.name, item.extension ?? null);
 	}
 
-	function getIcon(type: FileIconType): string {
-		const icons: Record<FileIconType, string> = {
+	function getIcon(type: FileIconType, fileName?: string): string {
+		const extension = fileName?.split('.').pop()?.toLowerCase();
+
+		const icons: Record<FileIconType | string, string> = {
+			// Базовые типы
 			folder: '📁',
 			image: '🖼️',
 			video: '🎬',
@@ -61,8 +64,128 @@
 			pdf: '📕',
 			config: '⚙️',
 			text: '📄',
-			default: '📄'
+			default: '📄',
+
+			// Документы
+			word: '📘',
+			excel: '📗',
+			powerpoint: '📙',
+
+			// Код
+			javascript: '🟨',
+			typescript: '🔷',
+			python: '🐍',
+			java: '☕',
+			cpp: '⚡',
+			csharp: '🎯',
+			go: '🐹',
+			rust: '🦀',
+			ruby: '💎',
+			php: '🐘',
+			swift: '🐦',
+			kotlin: '🅺',
+			html: '🌐',
+			css: '🎨',
+			scss: '🎨',
+			sass: '🎨',
+			json: '📋',
+			yaml: '📋',
+			xml: '📋',
+			sql: '🗄️',
+
+			// Разметка и текст
+			markdown: '📝',
+			md: '📝',
+			rst: '📝',
+			tex: '📜',
+
+			// Shell и скрипты
+			bash: '🐚',
+			sh: '🐚',
+			zsh: '🐚',
+			fish: '🐠',
+			ps1: '🪟',
+			batch: '🪟',
+
+			// Системные
+			dockerfile: '🐳',
+			git: '📌',
+			env: '🔐',
+			toml: '⚙️',
+			ini: '⚙️',
+
+			// Базы данных
+			db: '🗄️',
+			sqlite: '🗄️',
+			csv: '📊',
+			tsv: '📊',
+
+			// Графика
+			svg: '🎯',
+			psd: '🎨',
+			ai: '🎯',
+			fig: '🎨',
+
+			// Другие
+			license: '📜',
+			readme: '📖',
+			makefile: '🔨',
+			log: '📋',
+			lock: '🔒',
+			key: '🔑',
+			cert: '🛡️',
+			iso: '💿',
+			exe: '⚙️',
+			dmg: '💿',
+			apk: '📱',
+			deb: '🐧',
+			rpm: '🐧',
 		};
+
+		// Проверяем конкретные расширения
+		if (extension) {
+			// JavaScript/TypeScript фреймворки
+			if (['jsx', 'tsx', 'vue', 'svelte'].includes(extension)) {
+				return '⚛️';
+			}
+
+			// Файлы README
+			if (fileName?.toLowerCase().includes('readme')) {
+				return icons.readme;
+			}
+
+			// Файлы лицензий
+			if (fileName?.toLowerCase().includes('license') || fileName?.toLowerCase().includes('licence')) {
+				return icons.license;
+			}
+
+			// Dockerfile
+			if (fileName === 'Dockerfile' || fileName?.includes('dockerfile')) {
+				return icons.dockerfile;
+			}
+
+			// Git файлы
+			if (fileName?.startsWith('.git') || fileName === 'gitignore' || fileName === 'gitattributes') {
+				return icons.git;
+			}
+
+			// Makefile
+			if (fileName === 'Makefile' || fileName === 'makefile') {
+				return icons.makefile;
+			}
+
+			// Файлы окружения
+			if (fileName?.startsWith('.env')) {
+				return icons.env;
+			}
+
+			// Проверяем по расширению
+			if (icons[extension]) {
+				return icons[extension];
+			}
+		}
+
+		// Возвращаем иконку по базовому типу
 		return icons[type] ?? icons.default;
 	}
 </script>
@@ -70,9 +193,9 @@
 <div class="min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-700/80 transition-colors duration-200">
 	{#if showBackButton}
 		<button
-			type="button"
-			class="flex w-full items-center gap-2 border-b border-slate-100 dark:border-gray-600 px-4 py-2 text-left text-slate-600 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-600/80"
-			onclick={goParent}
+				type="button"
+				class="flex w-full items-center gap-2 border-b border-slate-100 dark:border-gray-600 px-4 py-2 text-left text-slate-600 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-600/80"
+				onclick={goParent}
 		>
 			<span class="text-lg">↩</span>
 			<span>{t('common.back')}</span>
@@ -82,19 +205,19 @@
 		{#each directories as item}
 			<li class="group flex items-center gap-3 px-4 py-2 hover:bg-slate-50 dark:hover:bg-gray-600/80 min-w-0">
 				<button
-					type="button"
-					class="flex min-w-0 flex-1 items-center gap-3 text-left"
-					onclick={() => onOpenDir(item.path)}
+						type="button"
+						class="flex min-w-0 flex-1 items-center gap-3 text-left"
+						onclick={() => onOpenDir(item.path)}
 				>
 					<span class="text-2xl shrink-0" aria-hidden="true">{getIcon('folder')}</span>
 					<span class="font-medium text-slate-800 dark:text-gray-200 truncate" title={item.name}>{item.name}</span>
 				</button>
 				{#if onDelete}
 					<button
-						type="button"
-						class="file-action-btn shrink-0 min-w-[2.25rem] rounded p-1.5 text-slate-500 dark:text-gray-400 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-600 dark:hover:text-red-400"
-						aria-label={t('workspace.deleteFile') + ' ' + item.name}
-						onclick={(e) => {
+							type="button"
+							class="file-action-btn shrink-0 min-w-[2.25rem] rounded p-1.5 text-slate-500 dark:text-gray-400 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-600 dark:hover:text-red-400"
+							aria-label={t('workspace.deleteFile') + ' ' + item.name}
+							onclick={(e) => {
 							e.stopPropagation();
 							onDelete?.(item.path, true);
 						}}
@@ -112,11 +235,11 @@
 		{#each files as item}
 			<li class="group flex items-center gap-3 px-4 py-2 hover:bg-slate-50 dark:hover:bg-gray-600/80 min-w-0">
 				<button
-					type="button"
-					class="flex min-w-0 flex-1 items-center gap-3 text-left"
-					onclick={() => canPreview(item) && onPreview?.(item.path, item.name)}
+						type="button"
+						class="flex min-w-0 flex-1 items-center gap-3 text-left"
+						onclick={() => canPreview(item) && onPreview?.(item.path, item.name)}
 				>
-					<span class="text-xl shrink-0" aria-hidden="true">{getIcon(getFileIconType(item.name, item.extension ?? null))}</span>
+					<span class="text-xl shrink-0" aria-hidden="true">{getIcon(getFileIconType(item.name, item.extension ?? null), item.name)}</span>
 					<span class="min-w-0 flex-1 truncate text-slate-700 dark:text-gray-300" title={item.name}>
 						{item.name}
 					</span>
@@ -125,10 +248,10 @@
 					{/if}
 				</button>
 				<button
-					type="button"
-					class="file-action-btn shrink-0 min-w-[2.25rem] rounded p-1.5 text-slate-500 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-gray-500 hover:text-slate-700 dark:hover:text-gray-200"
-					aria-label={t('workspace.downloadFile').replace('{name}', item.name)}
-					onclick={(e) => {
+						type="button"
+						class="file-action-btn shrink-0 min-w-[2.25rem] rounded p-1.5 text-slate-500 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-gray-500 hover:text-slate-700 dark:hover:text-gray-200"
+						aria-label={t('workspace.downloadFile').replace('{name}', item.name)}
+						onclick={(e) => {
 						e.stopPropagation();
 						onDownload?.(item.path);
 					}}
@@ -141,10 +264,10 @@
 				</button>
 				{#if onDelete}
 					<button
-						type="button"
-						class="file-action-btn shrink-0 min-w-[2.25rem] rounded p-1.5 text-slate-500 dark:text-gray-400 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-600 dark:hover:text-red-400"
-						aria-label={t('workspace.deleteFile') + ' ' + item.name}
-						onclick={(e) => {
+							type="button"
+							class="file-action-btn shrink-0 min-w-[2.25rem] rounded p-1.5 text-slate-500 dark:text-gray-400 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-600 dark:hover:text-red-400"
+							aria-label={t('workspace.deleteFile') + ' ' + item.name}
+							onclick={(e) => {
 							e.stopPropagation();
 							onDelete?.(item.path, false);
 						}}

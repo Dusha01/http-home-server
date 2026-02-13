@@ -52,6 +52,7 @@ export const translations: Record<Locale, Record<string, string>> = {
 		'home.connectError': 'Не удалось подключиться к серверу',
 
 		'workspace.path': 'Путь:',
+		'workspace.pathNotFoundFallback': 'Сохранённая папка недоступна, открыт корень хранилища.',
 		'workspace.downloadError': 'Ошибка скачивания',
 		'workspace.emptyFolder': 'Папка пуста',
 		'workspace.downloadFile': 'Скачать {name}',
@@ -120,6 +121,7 @@ export const translations: Record<Locale, Record<string, string>> = {
 		'home.connectError': 'Could not connect to server',
 
 		'workspace.path': 'Path:',
+		'workspace.pathNotFoundFallback': 'Saved folder not available, opened storage root.',
 		'workspace.downloadError': 'Download error',
 		'workspace.emptyFolder': 'Folder is empty',
 		'workspace.downloadFile': 'Download {name}',

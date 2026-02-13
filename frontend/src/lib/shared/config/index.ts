@@ -14,6 +14,13 @@ export const FOLDER_PATH_STORAGE_KEY = 'home-server-folder-path';
 /** Событие при смене сохранённой папки в настройках (чтобы workspace обновил отображение). */
 export const FOLDER_PATH_CHANGED_EVENT = 'home-server-folder-path-changed';
 
+/** Записать путь папки в localStorage (только с основного сервера). */
+export function setStoredFolderPath(path: string): void {
+	if (typeof document === 'undefined' || !isMainServer()) return;
+	const normalized = (path || '/').replace(/\\/g, '/').replace(/\/+/g, '/').trim().replace(/\/$/, '') || '/';
+	localStorage.setItem(FOLDER_PATH_STORAGE_KEY, normalized === '.' ? '/' : normalized);
+}
+
 /** Открыто с основного сервера (localhost) — только там можно менять путь к папке. На клиентах опция недоступна. */
 export function isMainServer(): boolean {
 	if (typeof document === 'undefined') return false;

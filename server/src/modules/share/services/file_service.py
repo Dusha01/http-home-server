@@ -19,6 +19,9 @@ def _default_shared_dir(root_path: Path) -> SharedDirectory:
         name=root_path.name or "Storage",
         path=str(root_path.resolve()),
         description="Корневая папка хранилища по умолчанию",
+        allow_upload=True,
+        allow_delete=True,
+        allow_rename=True,
     )
 
 
@@ -66,6 +69,9 @@ class FileService:
                     name=path.name or "Folder",
                     path=str(path),
                     description="Выбранная папка (абсолютный путь)",
+                    allow_upload=True,
+                    allow_delete=True,
+                    allow_rename=True,
                 )
                 return virtual, Path(""), path
             if path.is_file():
@@ -75,6 +81,9 @@ class FileService:
                     name=parent.name or "Folder",
                     path=str(parent),
                     description="Выбранная папка (абсолютный путь)",
+                    allow_upload=True,
+                    allow_delete=True,
+                    allow_rename=True,
                 )
                 try:
                     rel = path.relative_to(parent)

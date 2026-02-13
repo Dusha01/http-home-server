@@ -48,8 +48,14 @@ check_dependencies() {
     
     if [ ${#missing[@]} -gt 0 ]; then
         print_error "Отсутствуют зависимости: ${missing[*]}"
-        show_install_instructions "${missing[@]}"
-        exit 1
+        if [ -x "$ROOT/scripts/install-deps.sh" ]; then
+            "$ROOT/scripts/install-deps.sh" || exit 1
+            check_dependencies
+            return
+        else
+            show_install_instructions "${missing[@]}"
+            exit 1
+        fi
     fi
 }
 

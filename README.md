@@ -16,9 +16,15 @@ After cloning, run with a single command:
 ./start.sh
 ```
 
-Скрипт установит зависимости (Node.js, npm, Python), соберёт фронтенд и запустит сервер. Веб‑интерфейс будет доступен по адресу `http://localhost:8080` (или `http://<IP>:8080` с другого устройства в сети).
+или через Makefile / or via Makefile:
 
-The script installs dependencies (Node.js, npm, Python), builds the frontend and starts the server. The web UI will be at `http://localhost:8080` (or `http://<IP>:8080` from another device on the network).
+```bash
+make run
+```
+
+Скрипт при отсутствии системных зависимостей предложит установить их (yes/no). При согласии зависимости (Python, Node.js) устанавливаются автоматически через пакетный менеджер (apt, dnf, pacman, brew). Затем устанавливаются зависимости проекта, собирается фронтенд и запускается сервер. Веб‑интерфейс: `http://localhost:8080` (или `http://<IP>:8080` с другого устройства в сети).
+
+The script will prompt to install missing system dependencies (yes/no). If agreed, Python and Node.js are installed via the system package manager. Then project dependencies are installed, frontend is built and the server starts. Web UI: `http://localhost:8080` (or `http://<IP>:8080` from another device).
 
 При первом запуске без настроенного `.env` скрипт не задаёт режим аутентификации — сервер спросит в консоли: **с токеном (y)** или **без (n)**. Чтобы запуск был полностью без вопросов, создайте `server/.env` и задайте `AUTH_REQUIRED=true` или `AUTH_REQUIRED=false`.
 
@@ -31,9 +37,50 @@ On first run without a `.env` file, the server will ask in the console: **with t
 - **Node.js** 18+ и **npm**
 - **Python** 3.10+
 
-Если чего‑то не хватает, `./start.sh` подскажет команды установки для вашей ОС.
+Если чего‑то не хватает, при запуске `./start.sh` или `make run` появится предложение установить зависимости (yes/no). Отдельно проверить и установить только системные зависимости: `make install-deps`.
 
-If any of these are missing, `./start.sh` will suggest install commands for your OS.
+If any are missing, `./start.sh` or `make run` will prompt to install them (yes/no). To only check/install system deps: `make install-deps`.
+
+---
+
+## Makefile и CLI / Makefile and CLI
+
+| Команда / Command | Описание / Description |
+|-------------------|------------------------|
+| `make run` | Быстрый запуск (если уже установлено — только сервер; иначе полная установка и запуск). |
+| `make run-full` | Полный цикл как `./start.sh`. |
+| `make run-server` | Только запуск сервера (venv и статика должны быть уже готовы). |
+| `make install` | Установка зависимостей проекта (после `install-deps`: venv, npm, сборка). |
+| `make install-deps` | Проверка Python и Node.js; при отсутствии — предложение установить (yes/no). |
+| `make build` | Сборка фронтенда и копирование в `server/static`. |
+| `make dev` | Режим разработки (сервер с reload). |
+| `make clean` | Удалить venv, node_modules, server/static. |
+| `make install-cli` | Один раз установить команду `home-server` в PATH (~/.local/bin). |
+| `make uninstall-cli` | Удалить команду `home-server` из PATH. |
+
+**Запуск из любой директории (CLI):** один раз выполните `make install-cli`. После этого команда `home-server` будет доступна из любого места и запустит сервер (из корня репозитория). Убедитесь, что `~/.local/bin` в вашем PATH.
+
+**Run from anywhere (CLI):** run `make install-cli` once. Then the `home-server` command will be available from any directory. Ensure `~/.local/bin` is in your PATH.
+
+---
+
+## Windows
+
+На Windows используйте PowerShell:
+
+**Run on Windows (PowerShell):**
+
+```powershell
+.\start.ps1
+```
+
+Скрипт проверяет наличие **Python 3.10+** и **Node.js 18+**. Если чего-то не хватает — предложит установить (yes/no). При согласии установка выполняется через **winget** (встроен в Windows 10/11). После установки зависимостей перезапустите терминал и снова выполните `.\start.ps1`.
+
+The script checks for Python 3.10+ and Node.js 18+. If something is missing, it will prompt to install (yes/no). If agreed, it uses **winget**. Restart the terminal after installation, then run `.\start.ps1` again.
+
+- Только проверить/установить системные зависимости: `.\scripts\install-deps.ps1`  
+- Полная переустановка (venv, node_modules, static): `.\start.ps1 --clean`  
+- Установить запуск из любой папки: `.\scripts\install-cli.ps1` — затем можно вызывать `home-server.ps1` из любого места. Удаление: `.\scripts\install-cli.ps1 --uninstall`
 
 ---
 

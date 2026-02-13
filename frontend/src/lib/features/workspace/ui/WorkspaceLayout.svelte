@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { API_BASE, getStoredFolderPath, FOLDER_PATH_CHANGED_EVENT } from '$lib/shared/config';
+	import { API_BASE, getStoredFolderPath, setStoredFolderPath, FOLDER_PATH_CHANGED_EVENT } from '$lib/shared/config';
 	import { t } from '$lib/shared/locale';
 	import FileList from './FileList.svelte';
 
@@ -83,6 +83,8 @@
 	let content = $state<DirectoryContent | null>(null);
 	let loading = $state(true);
 	let error = $state('');
+	/** Краткое сообщение при автоматическом переходе в корень (папка не найдена). */
+	let pathFallbackMessage = $state('');
 
 	let previewOpen = $state(false);
 	let previewName = $state('');
@@ -108,10 +110,22 @@
 	async function load(path: string) {
 		loading = true;
 		error = '';
+		pathFallbackMessage = '';
 		try {
 			content = await fetchDirectoryContent(path, token);
 		} catch (e) {
-			error = e instanceof Error ? e.message : t('settings.loadError');
+			const msg = e instanceof Error ? e.message : t('settings.loadError');
+			const isPathNotFound =
+				path !== '/' &&
+				(msg.includes('Path not found') || msg.includes('path not found') || msg.includes('404'));
+			if (isPathNotFound) {
+				setStoredFolderPath('/');
+				currentPath = '/';
+				pathFallbackMessage = t('workspace.pathNotFoundFallback');
+				window.dispatchEvent(new CustomEvent(FOLDER_PATH_CHANGED_EVENT, { detail: '/' }));
+			} else {
+				error = msg;
+			}
 			content = null;
 		} finally {
 			loading = false;
@@ -373,6 +387,9 @@
 	{:else if error}
 		<p class="text-red-600 dark:text-red-400">{error}</p>
 	{:else if content}
+		{#if pathFallbackMessage}
+			<p class="text-sm text-amber-600 dark:text-amber-400">{pathFallbackMessage}</p>
+		{/if}
 		{#if downloadError}
 			<p class="text-sm text-red-600 dark:text-red-400">{downloadError}</p>
 		{/if}

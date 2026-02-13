@@ -154,9 +154,20 @@ cp server/.env.example server/.env
 
 ---
 
+# **Пример использования**
+
+### Запуск основного сервера без токена 
+![Запуск основного без токена сервера](img/pusk_no_token.png)
+
+### Запуск основного сервера с токеном
+![Запуск основного c токеном сервера](img/pusk_with_token.png)
+
+### Веб-интерфейс рабочего пространства транслируемой папки
+![gui web](img/workspace_front.png)
+
 ## Документация / Documentation
 
-- [server/docs/ARCHITECTURE.md](server/docs/ARCHITECTURE.md) — архитектура бэкенда (RU)
+
 - [docs/DEPLOY.ru.md](docs/DEPLOY.ru.md) — сборка и запуск для релиза (RU)
 - [docs/DEPLOY.en.md](docs/DEPLOY.en.md) — build and run for release (EN)
 

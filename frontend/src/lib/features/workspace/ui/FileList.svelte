@@ -212,6 +212,23 @@
 					<span class="text-2xl shrink-0" aria-hidden="true">{getIcon('folder')}</span>
 					<span class="font-medium text-slate-800 dark:text-gray-200 truncate" title={item.name}>{item.name}</span>
 				</button>
+				{#if onDownload}
+					<button
+							type="button"
+							class="file-action-btn shrink-0 min-w-[2.25rem] rounded p-1.5 text-slate-500 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-gray-500 hover:text-slate-700 dark:hover:text-gray-200"
+							aria-label={t('workspace.downloadFolder', { name: item.name })}
+							onclick={(e) => {
+								e.stopPropagation();
+								onDownload?.(item.path);
+							}}
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+							<polyline points="7 10 12 15 17 10" />
+							<line x1="12" y1="15" x2="12" y2="3" />
+						</svg>
+					</button>
+				{/if}
 				{#if onDelete}
 					<button
 							type="button"

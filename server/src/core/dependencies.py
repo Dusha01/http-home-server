@@ -10,6 +10,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from src.modules.auth.services.auth_service import AuthService
 from src.modules.share.services.directory_service import DirectoryService
 from src.modules.share.services.file_service import FileService
+from src.modules.share.services.download_service import DownloadService
 
 from src.core.config import config, Settings
 
@@ -30,6 +31,10 @@ async def get_directory_service(request: Request) -> DirectoryService:
 
 async def get_file_service(request: Request) -> FileService:
     return request.app.state.file_service
+
+
+async def get_download_service(request: Request) -> DownloadService:
+    return request.app.state.download_service
 
 
 def get_auth_required(request: Request) -> bool:

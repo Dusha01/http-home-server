@@ -37,10 +37,19 @@ class FileService:
         self.file_utils = FileUtils()
         self.default_root_path = Path(default_root_path).resolve() if default_root_path else None
 
-    def _resolve_path(self, request_path: str) -> tuple:
+    def resolve_path(self, request_path: str) -> tuple:
         """
         Разрешение запрошенного пути до конкретной общей директории и относительного пути.
         При запросе "/" и отсутствии общих папок используется default_root_path (storage).
+        Публичный метод для использования в DownloadService и др.
+        Returns:
+            tuple: (shared_dir, relative_path, full_path)
+        """
+        return self._resolve_path(request_path)
+
+    def _resolve_path(self, request_path: str) -> tuple:
+        """
+        Внутренняя реализация разрешения пути.
         """
         raw = (request_path or "").strip() or "/"
         is_root_request = raw in ("/", "", ".")
@@ -198,29 +207,6 @@ class FileService:
         
         return file_info
     
-
-    async def download_file(self, path: str, chunk_size: int = 64 * 1024):
-        """
-        Подготовка файла к скачиванию
-        
-        Args:
-            path: Путь к файлу
-            chunk_size: Размер чанка для чтения
-            
-        Returns:
-            tuple: (file_path, mime_type, filename)
-        """
-        shared_dir, relative_path, full_path = self._resolve_path(path)
-        
-        if not full_path.exists():
-            raise HTTPException(status_code=404, detail="File not found")
-        
-        if not full_path.is_file():
-            raise HTTPException(status_code=400, detail="Path is not a file")
-        
-        mime_type = FileUtils.get_mime_type(full_path)
-        
-        return full_path, mime_type, full_path.name
 
     async def get_file_content_as_text(
         self, path: str, max_size: int = 512 * 1024

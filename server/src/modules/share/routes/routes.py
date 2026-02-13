@@ -8,18 +8,21 @@ import string
 from pathlib import Path
 from typing import Optional, List
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
+import os
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, BackgroundTasks
 from fastapi.responses import FileResponse, PlainTextResponse
 
 from src.core.config import config
 from src.core.dependencies import (
     get_directory_service,
     get_file_service,
+    get_download_service,
     get_token_if_required,
     get_optional_token,
 )
 from src.modules.share.services.directory_service import DirectoryService
 from src.modules.share.services.file_service import FileService
+from src.modules.share.services.download_service import DownloadService
 from src.modules.share.models.file_models import (
     ShareRequest,
     ShareResponse,
@@ -151,19 +154,22 @@ def create_share_router() -> APIRouter:
 
     @router.get("/download")
     async def download_file(
-        path: str = Query(..., description="Путь к файлу"),
+        background_tasks: BackgroundTasks,
+        path: str = Query(..., description="Путь к файлу или папке"),
         as_attachment: bool = Query(True, description="Скачать как вложение"),
-        file_service: FileService = Depends(get_file_service),
+        download_service: DownloadService = Depends(get_download_service),
         _: Optional[str] = Depends(get_token_if_required),
     ):
-        file_path, mime_type, filename = await file_service.download_file(path)
+        result = download_service.prepare_download(path)
+        if result.cleanup_after_send:
+            background_tasks.add_task(os.unlink, str(result.path))
         if as_attachment:
             return FileResponse(
-                path=file_path,
-                media_type=mime_type,
-                filename=filename,
+                path=result.path,
+                media_type=result.mime_type,
+                filename=result.filename,
             )
-        return FileResponse(path=file_path, media_type=mime_type)
+        return FileResponse(path=result.path, media_type=result.mime_type)
 
     @router.get("/preview", response_class=PlainTextResponse)
     async def preview_file(
@@ -264,16 +270,19 @@ def create_share_router() -> APIRouter:
 
     @router.get("/public/download")
     async def public_download_file(
-        path: str = Query(..., description="Путь к файлу"),
+        background_tasks: BackgroundTasks,
+        path: str = Query(..., description="Путь к файлу или папке"),
         as_attachment: bool = Query(True, description="Скачать как вложение"),
-        file_service: FileService = Depends(get_file_service),
+        download_service: DownloadService = Depends(get_download_service),
         _: Optional[str] = Depends(get_optional_token),
     ):
-        file_path, mime_type, filename = await file_service.download_file(path)
+        result = download_service.prepare_download(path)
+        if result.cleanup_after_send:
+            background_tasks.add_task(os.unlink, str(result.path))
         return FileResponse(
-            path=file_path,
-            media_type=mime_type,
-            filename=filename if as_attachment else None,
+            path=result.path,
+            media_type=result.mime_type,
+            filename=result.filename if as_attachment else None,
         )
 
     @router.get("/public/preview", response_class=PlainTextResponse)

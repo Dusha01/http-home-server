@@ -22,6 +22,7 @@ from src.modules.auth.routes.routes import create_auth_router
 from src.modules.share.routes.routes import create_share_router
 from src.modules.share.services.directory_service import DirectoryService
 from src.modules.share.services.file_service import FileService
+from src.modules.share.services.download_service import DownloadService
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -43,10 +44,12 @@ async def lifespan(app: FastAPI, auth_required: bool = True):
         app.state.auth_service = auth_service
         app.state.auth_required = auth_required
         app.state.directory_service = dir_service
-        app.state.file_service = FileService(
+        file_service = FileService(
             dir_service,
             default_root_path=config.storage_dir,
         )
+        app.state.file_service = file_service
+        app.state.download_service = DownloadService(file_service)
 
         token_count = len(auth_service.tokens)
         if not auth_required:

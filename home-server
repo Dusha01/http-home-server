@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# home-server: запуск сервера на 8085 и фронта на 5175 (после make install-cli).
 
 set -euo pipefail
 SOURCE="${BASH_SOURCE[0]}"
@@ -8,4 +9,4 @@ while [ -h "$SOURCE" ]; do
     [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
 done
 ROOT="$(cd -P "$(dirname "$SOURCE")" && pwd)"
-exec "$ROOT/start.sh" "$@"
+exec "$ROOT/scripts/run-cli.sh" "$@"

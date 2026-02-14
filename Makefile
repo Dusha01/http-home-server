@@ -21,7 +21,7 @@ help:
 	@echo "  make build        — сборка фронтенда и копирование в server/static"
 	@echo "  make dev          — режим разработки (сервер с reload + не трогать статику)"
 	@echo "  make clean        — удалить venv, node_modules, server/static"
-	@echo "  make install-cli  — установить команду 'home-server' в PATH (один раз)"
+	@echo "  make install-cli  — установить команду 'home-server' в PATH (один раз). После этого home-server запускает сервер на :8085 и фронт на :5175"
 	@echo "  make uninstall-cli — удалить команду 'home-server' из PATH"
 	@echo ""
 

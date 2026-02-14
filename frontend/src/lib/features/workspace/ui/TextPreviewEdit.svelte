@@ -87,7 +87,7 @@
 
         try {
             const detected = hljs.highlightAuto(content, getLanguageHints());
-            highlightedHtml = String(detected.value).replace(/^\n+|\n+$/g, '');
+            highlightedHtml = String(detected.value);
         } catch (e) {
             console.error('Highlight error:', e);
             highlightedHtml = escapeHtml(content);
@@ -259,13 +259,11 @@
                 {/each}
             </div>
 
-            <!-- Подсвеченный код -->
+            <!-- Подсвеченный код (без пробелов внутри pre — иначе первая строка пустая) -->
             <pre
                     class="flex-1 min-w-0 p-4 font-mono text-sm overflow-x-auto leading-6"
                     class:hljs={hljsLoaded}
-            >
-                <code>{@html highlightedHtml}</code>
-            </pre>
+            ><code>{@html highlightedHtml}</code></pre>
         </div>
     {/if}
 </div>

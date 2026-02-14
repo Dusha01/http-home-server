@@ -81,7 +81,7 @@ export interface UploadResponse {
 
 /**
  * Загрузить один файл в указанную директорию.
- * Требует авторизации.
+ * С токеном — /share/upload, без — /share/public/upload.
  */
 export async function uploadFile(
 	directoryPath: string,
@@ -95,7 +95,8 @@ export async function uploadFile(
 	});
 	const formData = new FormData();
 	formData.append('file', file);
-	return api.postForm<UploadResponse>(`/share/upload?${params}`, formData, token);
+	const endpoint = token ? `/share/upload?${params}` : `/share/public/upload?${params}`;
+	return api.postForm<UploadResponse>(endpoint, formData, token);
 }
 
 /**

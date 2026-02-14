@@ -321,6 +321,24 @@ def create_share_router() -> APIRouter:
         await file_service.update_file_content(path, content)
         return {"success": True}
 
+    @router.post("/public/upload", response_model=UploadResponse)
+    async def public_upload_file(
+        directory: str = Query(..., description="Путь к директории для загрузки"),
+        file: UploadFile = File(...),
+        overwrite: bool = Query(False, description="Перезаписывать существующий файл"),
+        file_service: FileService = Depends(get_file_service),
+        _: Optional[str] = Depends(get_optional_token),
+    ):
+        """Загрузка файла в общую директорию (публичный доступ без токена)."""
+        result = await file_service.upload_file(directory, file, overwrite)
+        return UploadResponse(
+            success=True,
+            message="File uploaded successfully",
+            filename=result["filename"],
+            size=result["size"],
+            path=result["path"],
+        )
+
     # ============= ПРОВОДНИК (ФАЙЛОВАЯ СИСТЕМА ПК) =============
 
     @router.get("/explorer/roots", response_model=List[ExplorerRootItem])

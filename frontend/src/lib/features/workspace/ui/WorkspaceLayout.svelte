@@ -4,6 +4,7 @@
 	import { t } from '$lib/shared/locale';
 	import FileList from './FileList.svelte';
 	import FilePreview from './FilePreview.svelte';
+	import AddTextFileModal from './AddTextFileModal.svelte';
 
 	import { fetchDirectoryContent, fetchServerRootPath, uploadFile, createDirectory, deletePath } from '../api/api';
 	import { getStoredToken } from '$lib';
@@ -98,6 +99,7 @@
 	let uploadError = $state('');
 	let uploadSuccess = $state(false);
 	let addMenuOpen = $state(false);
+	let addTextFileOpen = $state(false);
 	let dragOver = $state(false);
 	let fileInput = $state<HTMLInputElement | undefined>(undefined);
 	let folderInput = $state<HTMLInputElement | undefined>(undefined);
@@ -289,6 +291,11 @@
 		(folderInput ?? undefined)?.click();
 	}
 
+	function openAddTextFile(): void {
+		addMenuOpen = false;
+		addTextFileOpen = true;
+	}
+
 	$effect(() => {
 		load(currentPath);
 	});
@@ -366,6 +373,9 @@
 						<button type="button" class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-gray-600" role="menuitem" onclick={chooseFolder}>
 							{t('workspace.addFolder')}
 						</button>
+						<button type="button" class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-gray-600" role="menuitem" onclick={openAddTextFile}>
+							{t('workspace.addTextFile')}
+						</button>
 					</div>
 				{/if}
 				<input
@@ -426,4 +436,12 @@
 		canEdit={true}
 		onClose={closePreview}
 		onFileUpdate={() => load(currentPath)}
+/>
+
+<AddTextFileModal
+		open={addTextFileOpen}
+		currentPath={content?.current_path ?? currentPath}
+		token={token}
+		onClose={() => addTextFileOpen = false}
+		onCreated={() => load(currentPath)}
 />

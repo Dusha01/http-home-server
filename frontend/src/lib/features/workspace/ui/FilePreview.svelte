@@ -390,10 +390,11 @@
                                 editable={false}
                                 editRequested={editRequested}
                                 onSave={handleSaveContent}
-                        on:error={handleTextPreviewError}
-                        on:save={() => {
-                        if (onFileUpdate) onFileUpdate();
-                    }}
+                                onCancel={() => editRequested = 0}
+                                on:error={handleTextPreviewError}
+                                on:save={() => {
+                                    if (onFileUpdate) onFileUpdate();
+                                }}
                         />
                     </div>
 

@@ -12,7 +12,7 @@ done
 ROOT="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
 cd "$ROOT"
 
-SERVER_PORT=8085
+SERVER_PORT=8082
 FRONTEND_PORT=5175
 
 # Загружаем .env
@@ -28,6 +28,9 @@ if [ -f "$ROOT/server/.env" ]; then
 fi
 
 export SERVER_PORT
+export FRONTEND_URL="http://localhost:$FRONTEND_PORT"
+# Неинтерактивный режим: AUTH_REQUIRED из .env или n (без токена для быстрого доступа)
+export AUTH_REQUIRED="${AUTH_REQUIRED:-n}"
 # В dev-режиме статику отдаёт Vite — сервер без STATIC_DIR, API без /api (proxy с rewrite)
 unset STATIC_DIR
 mkdir -p "$ROOT/server/data" "$ROOT/server/logs"
@@ -61,6 +64,9 @@ trap cleanup EXIT INT TERM
 sleep 2
 if ! kill -0 $SERVER_PID 2>/dev/null; then
     echo "❌ Сервер не запустился"
+    if command -v lsof >/dev/null 2>&1 && lsof -i ":$SERVER_PORT" -t >/dev/null 2>&1; then
+        echo "   Порт $SERVER_PORT занят. Освободите: kill \$(lsof -ti:$SERVER_PORT)"
+    fi
     exit 1
 fi
 

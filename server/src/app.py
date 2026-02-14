@@ -2,6 +2,7 @@
 Точка входа приложения FastAPI.
 """
 import os
+import sys
 from contextlib import asynccontextmanager
 import uvicorn
 import psutil
@@ -200,6 +201,15 @@ def create_app(auth_required: bool = True) -> FastAPI:
 def _run_with_prompt():
     """Запуск с вопросом в консоли: генерировать токен аутентификации или нет."""
     set_locale(config.language)
+
+    # AUTH_REQUIRED в .env или env — пропуск интерактивного вопроса
+    if config.auth_required is not None:
+        return create_app(auth_required=config.auth_required)
+
+    # Нет TTY (фон, pipe) — используем значение по умолчанию
+    if not sys.stdin.isatty():
+        return create_app(auth_required=True)
+
     print(f"\n🔐 {t('prompt.setup')}\n")
     while True:
         answer = input(t("prompt.question")).strip().lower()

@@ -1,92 +1,180 @@
-#!/usr/bin/env pwsh
-# Home Server — установка и запуск для Windows
-# При отсутствии Python/Node — предложение установить (yes/no) через winget.
-
 $ErrorActionPreference = "Stop"
 $ROOT = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $ROOT
 
 function Write-Success { Write-Host "✅ $args" -ForegroundColor Green }
-function Write-Info { Write-Host "ℹ️  $args" -ForegroundColor Blue }
-function Write-Warning { Write-Host "⚠️  $args" -ForegroundColor Yellow }
+function Write-Info { Write-Host "ℹ️ $args" -ForegroundColor Blue }
+function Write-Warning { Write-Host "⚠️ $args" -ForegroundColor Yellow }
 function Write-Err { Write-Host "❌ $args" -ForegroundColor Red }
 
-# --- Проверка зависимостей ---
-function Test-Dependencies {
-    $script:PYTHON = $null
-    $script:missing = @()
-
-    # Python 3.10+
-    foreach ($py in @("python", "python3", "py")) {
-        try {
-            $ver = & $py -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>$null
-            if ($ver) {
-                $major, $minor = $ver -split '\.'
-                if ([int]$major -ge 3 -and [int]$minor -ge 10) {
-                    $script:PYTHON = $py
-                    break
-                }
-            }
-        } catch {}
-    }
-    if (-not $script:PYTHON) { $script:missing += "Python 3.10+" }
-
-    # Node.js 18+
+# Проверка winget
+function Test-Winget {
     try {
-        $nodeVersion = (node -v 2>$null) -replace '^v(\d+).*', '$1'
-        if (-not $nodeVersion -or [int]$nodeVersion -lt 18) {
-            if ($nodeVersion) { Write-Warning "Обнаружен Node.js v$nodeVersion, рекомендуется 18+" }
-            $script:missing += "Node.js 18+"
-        }
+        $null = Get-Command winget -ErrorAction Stop
+        return $true
     } catch {
-        $script:missing += "Node.js 18+"
+        return $false
     }
-
-    # npm
-    try {
-        $null = Get-Command npm -ErrorAction Stop
-    } catch {
-        $script:missing += "npm"
-    }
-
-    return ($script:missing.Count -eq 0)
 }
 
-# --- Обработка флага --clean ---
+# Установка через winget
+function Install-WithWinget {
+    param([string]$PackageId, [string]$DisplayName)
+    
+    Write-Info "Installing $DisplayName via winget..."
+    $result = winget install -e --id $PackageId --accept-package-agreements --accept-source-agreements 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Success "$DisplayName installed"
+        return $true
+    } else {
+        Write-Err "Failed to install $DisplayName via winget"
+        return $false
+    }
+}
+
+# Скачивание и установка через официальные сайты
+function Install-Manual {
+    param([string]$Component)
+    
+    Write-Warning "$Component not found"
+    Write-Host ""
+    Write-Info "Please install $Component manually:"
+    
+    switch ($Component) {
+        "Python" {
+            Write-Host "  Option 1: Download from https://www.python.org/downloads/"
+            Write-Host "  Option 2: Install via Microsoft Store (search 'Python 3.12')"
+        }
+        "Node.js" {
+            Write-Host "  Option 1: Download from https://nodejs.org/ (LTS version)"
+            Write-Host "  Option 2: Install via Microsoft Store (search 'Node.js')"
+        }
+    }
+    Write-Host ""
+}
+
+# Запрос на установку
+function Confirm-Install {
+    param([string]$Message)
+    
+    $response = Read-Host "$Message (y/n)"
+    return ($response -eq 'y' -or $response -eq 'Y' -or $response -eq 'yes' -or $response -eq 'Yes')
+}
+
+# Обработка флага --clean
 if ($args -contains "--clean") {
-    Write-Warning "Полная переустановка..."
+    Write-Warning "Full reinstall..."
     $venvDir = Join-Path $ROOT "server\venv"
     $nodeModules = Join-Path $ROOT "frontend\node_modules"
     $staticDir = Join-Path $ROOT "server\static"
     if (Test-Path $venvDir) { Remove-Item -Recurse -Force $venvDir }
     if (Test-Path $nodeModules) { Remove-Item -Recurse -Force $nodeModules }
     if (Test-Path $staticDir) { Remove-Item -Recurse -Force $staticDir }
-    Write-Success "Очистка завершена."
+    Write-Success "Cleanup completed"
 }
 
-# --- Проверка зависимостей и установка при необходимости ---
-if (-not (Test-Dependencies)) {
-    Write-Err "Отсутствуют зависимости: $($script:missing -join ', ')"
-    $installScript = Join-Path $ROOT "scripts\install-deps.ps1"
-    if (Test-Path $installScript) {
-        & $installScript
-        if ($LASTEXITCODE -ne 0) { exit 1 }
-        Write-Host ""
-        Write-Info "После установки перезапустите терминал и снова выполните: .\start.ps1"
-        exit 0
-    } else {
-        Write-Host ""
-        Write-Info "Установите вручную:"
-        Write-Host "  Python:  winget install -e --id Python.Python.3.11"
-        Write-Host "  Node.js: winget install -e --id OpenJS.NodeJS.LTS"
-        Write-Host "  Или скачайте с https://python.org и https://nodejs.org"
-        exit 1
+Write-Info "====================================="
+Write-Info "   Home Server Setup for Windows"
+Write-Info "====================================="
+Write-Host ""
+
+# Проверка Python
+$PYTHON = $null
+$pythonInstalled = $false
+foreach ($py in @("python", "python3", "py")) {
+    try {
+        $ver = & $py -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>$null
+        if ($ver) {
+            $major, $minor = $ver -split '\.'
+            if ([int]$major -ge 3 -and [int]$minor -ge 10) {
+                $PYTHON = $py
+                $pythonInstalled = $true
+                Write-Success "Python $major.$minor found"
+                break
+            }
+        }
+    } catch {}
+}
+
+# Проверка Node.js
+$nodeInstalled = $false
+try {
+    $nodeVersion = (node -v 2>$null) -replace '^v(\d+).*', '$1'
+    if ($nodeVersion) {
+        if ([int]$nodeVersion -ge 18) {
+            $nodeInstalled = $true
+            Write-Success "Node.js v$nodeVersion found"
+        } else {
+            Write-Warning "Node.js v$nodeVersion found, but v18+ is required"
+        }
     }
+} catch {}
+
+# Проверка npm
+$npmInstalled = $false
+try {
+    $npmVersion = (npm -v 2>$null)
+    if ($npmVersion) {
+        $npmInstalled = $true
+        Write-Success "npm v$npmVersion found"
+    }
+} catch {}
+
+# Проверка наличия всех зависимостей
+$allInstalled = $pythonInstalled -and $nodeInstalled -and $npmInstalled
+
+if (-not $allInstalled) {
+    Write-Host ""
+    Write-Warning "Missing dependencies detected"
+    Write-Host ""
+    
+    if (Test-Winget) {
+        Write-Info "winget detected. Can install automatically."
+        if (Confirm-Install "Install missing components using winget?") {
+            $allSuccess = $true
+            
+            if (-not $pythonInstalled) {
+                if (-not (Install-WithWinget -PackageId "Python.Python.3.12" -DisplayName "Python 3.12")) {
+                    $allSuccess = $false
+                    Install-Manual -Component "Python"
+                }
+            }
+            
+            if (-not $nodeInstalled) {
+                if (-not (Install-WithWinget -PackageId "OpenJS.NodeJS.LTS" -DisplayName "Node.js LTS")) {
+                    $allSuccess = $false
+                    Install-Manual -Component "Node.js"
+                }
+            }
+            
+            if ($allSuccess) {
+                Write-Success "All components installed via winget!"
+                Write-Warning "Please close and reopen terminal, then run script again"
+                exit 0
+            }
+        } else {
+            if (-not $pythonInstalled) { Install-Manual -Component "Python" }
+            if (-not $nodeInstalled) { Install-Manual -Component "Node.js" }
+        }
+    } else {
+        Write-Err "winget not found. Manual installation required:"
+        if (-not $pythonInstalled) { Install-Manual -Component "Python" }
+        if (-not $nodeInstalled) { Install-Manual -Component "Node.js" }
+    }
+    
+    Write-Host ""
+    Write-Warning "After manual installation, run this script again"
+    exit 1
 }
 
-$PYTHON = $script:PYTHON
+Write-Success "All dependencies found!"
+Write-Info "Python: $PYTHON"
+Write-Info "Node.js: OK"
+Write-Info "npm: OK"
+Write-Host ""
 
 # --- Создание директорий ---
+Write-Info "Creating directories..."
 $dataDir = Join-Path $ROOT "server\data"
 $logsDir = Join-Path $ROOT "server\logs"
 $staticDir = Join-Path $ROOT "server\static"
@@ -97,41 +185,50 @@ foreach ($d in @($dataDir, $logsDir, $staticDir)) {
 # --- Виртуальное окружение Python ---
 $VENV_DIR = Join-Path $ROOT "server\venv"
 if (-not (Test-Path $VENV_DIR)) {
-    Write-Info "Создание виртуального окружения..."
+    Write-Info "Creating Python virtual environment..."
     & $PYTHON -m venv $VENV_DIR
 }
 $ACTIVATE = Join-Path $VENV_DIR "Scripts\Activate.ps1"
 & $ACTIVATE
 
 # --- Обновление pip и установка зависимостей Python ---
-Write-Info "Обновление pip..."
+Write-Info "Updating pip..."
 python -m pip install -q --upgrade pip
 $reqPath = Join-Path $ROOT "server\requirements.txt"
 if (Test-Path $reqPath) {
-    Write-Info "Установка Python зависимостей..."
+    Write-Info "Installing Python dependencies..."
     pip install -q -r $reqPath
+    Write-Success "Python dependencies installed"
 } else {
-    Write-Warning "server\requirements.txt не найден"
+    Write-Warning "server\requirements.txt not found"
 }
 
 # --- Фронтенд ---
-Write-Info "Настройка фронтенда..."
-Set-Location (Join-Path $ROOT "frontend")
-if (Test-Path "package-lock.json") {
-    npm ci --no-audit --no-fund
+Write-Info "Setting up frontend..."
+$frontendPath = Join-Path $ROOT "frontend"
+if (Test-Path $frontendPath) {
+    Set-Location $frontendPath
+    if (Test-Path "package-lock.json") {
+        npm ci --no-audit --no-fund
+    } else {
+        npm install --no-audit --no-fund
+    }
+    Write-Info "Building frontend..."
+    npm run build
+    Set-Location $ROOT
+    Write-Success "Frontend built successfully"
 } else {
-    npm install --no-audit --no-fund
+    Write-Warning "frontend directory not found"
 }
-Write-Info "Сборка фронтенда..."
-npm run build
-Set-Location $ROOT
 
 # --- Копирование статики ---
-Write-Info "Развертывание фронтенда..."
-$BUILD_DIR = Join-Path $ROOT "frontend\build"
-if (Test-Path $staticDir) { Remove-Item -Recurse -Force $staticDir }
-Copy-Item -Recurse $BUILD_DIR $staticDir
-Write-Success "Фронтенд скопирован в server\static"
+if (Test-Path (Join-Path $ROOT "frontend\build")) {
+    Write-Info "Deploying frontend..."
+    $BUILD_DIR = Join-Path $ROOT "frontend\build"
+    if (Test-Path $staticDir) { Remove-Item -Recurse -Force $staticDir }
+    Copy-Item -Recurse $BUILD_DIR $staticDir
+    Write-Success "Frontend copied to server\static"
+}
 
 # --- Загрузка .env ---
 $envFiles = @(
@@ -140,6 +237,7 @@ $envFiles = @(
 )
 foreach ($ef in $envFiles) {
     if (Test-Path $ef) {
+        Write-Info "Loading environment from $ef"
         Get-Content $ef | ForEach-Object {
             if ($_ -match '^\s*([^#][^=]+)=(.*)$') {
                 $name = $matches[1].Trim()
@@ -151,8 +249,16 @@ foreach ($ef in $envFiles) {
 }
 
 # --- Запуск сервера ---
-Write-Success "Все готово! Запуск сервера..."
+Write-Success "All ready! Starting server..."
 Write-Host ""
-Set-Location (Join-Path $ROOT "server")
-$env:STATIC_DIR = $staticDir
-python -m src
+$serverPath = Join-Path $ROOT "server"
+if (Test-Path $serverPath) {
+    Set-Location $serverPath
+    $env:STATIC_DIR = $staticDir
+    Write-Info "Server starting at http://localhost:5000"
+    Write-Host ""
+    python -m src
+} else {
+    Write-Err "server directory not found"
+    exit 1
+}

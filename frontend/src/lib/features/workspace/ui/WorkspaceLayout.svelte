@@ -3,11 +3,11 @@
 	import { API_BASE, getStoredFolderPath, setStoredFolderPath, FOLDER_PATH_CHANGED_EVENT } from '$lib/shared/config';
 	import { t } from '$lib/shared/locale';
 	import FileList from './FileList.svelte';
+	import FilePreview from './FilePreview.svelte';
 
-	import { fetchDirectoryContent, fetchPreview, fetchServerRootPath, uploadFile, createDirectory, deletePath } from '../api/api';
+	import { fetchDirectoryContent, fetchServerRootPath, uploadFile, createDirectory, deletePath } from '../api/api';
 	import { getStoredToken } from '$lib';
 	import type { DirectoryContent } from '$lib/entities/file';
-	import { isImagePreviewable, isVideoPreviewable } from '$lib/entities/file/preview';
 
 	/** Элемент для загрузки: файл и относительный путь папки (пустая строка = текущая папка) */
 	type UploadItem = { file: File; relativeDir: string };
@@ -86,14 +86,11 @@
 	/** Краткое сообщение при автоматическом переходе в корень (папка не найдена). */
 	let pathFallbackMessage = $state('');
 
+	// Состояние предпросмотра
 	let previewOpen = $state(false);
-	let previewName = $state('');
 	let previewPath = $state('');
-	let previewContent = $state('');
-	let previewLoading = $state(false);
-	let previewError = $state('');
-	let previewMode = $state<'text' | 'image' | 'video'>('text');
-	let previewMediaUrl = $state('');
+	let previewName = $state('');
+
 	let downloadError = $state('');
 	let deleteError = $state('');
 
@@ -116,8 +113,8 @@
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : t('settings.loadError');
 			const isPathNotFound =
-				path !== '/' &&
-				(msg.includes('Path not found') || msg.includes('path not found') || msg.includes('404'));
+					path !== '/' &&
+					(msg.includes('Path not found') || msg.includes('path not found') || msg.includes('404'));
 			if (isPathNotFound) {
 				setStoredFolderPath('/');
 				currentPath = '/';
@@ -144,82 +141,15 @@
 	}
 
 	function openPreview(path: string, name: string) {
-		if (previewMediaUrl) {
-			URL.revokeObjectURL(previewMediaUrl);
-			previewMediaUrl = '';
-		}
 		previewOpen = true;
-		previewName = name;
 		previewPath = path;
-		previewContent = '';
-		previewError = '';
-		previewMode = 'text';
-		previewMediaUrl = '';
-		previewLoading = true;
-
-		if (isImagePreviewable(name, name.split('.').pop() ?? null)) {
-			previewMode = 'image';
-			const q = `path=${encodeURIComponent(path)}&as_attachment=false`;
-			const endpoint = token ? `/share/download?${q}` : `/share/public/download?${q}`;
-			const url = `${API_BASE}${endpoint}`;
-			fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-				.then((res) => {
-					if (!res.ok) throw new Error(res.statusText || 'Failed to load');
-					return res.blob();
-				})
-				.then((blob) => {
-					previewMediaUrl = URL.createObjectURL(blob);
-					previewError = '';
-				})
-				.catch((e) => {
-					previewError = e instanceof Error ? e.message : t('settings.loadError');
-				})
-				.finally(() => { previewLoading = false; });
-			return;
-		}
-		if (isVideoPreviewable(name, name.split('.').pop() ?? null)) {
-			previewMode = 'video';
-			const q = `path=${encodeURIComponent(path)}&as_attachment=false`;
-			const endpoint = token ? `/share/download?${q}` : `/share/public/download?${q}`;
-			const url = `${API_BASE}${endpoint}`;
-			fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-				.then((res) => {
-					if (!res.ok) throw new Error(res.statusText || 'Failed to load');
-					return res.blob();
-				})
-				.then((blob) => {
-					previewMediaUrl = URL.createObjectURL(blob);
-					previewError = '';
-				})
-				.catch((e) => {
-					previewError = e instanceof Error ? e.message : t('settings.loadError');
-				})
-				.finally(() => { previewLoading = false; });
-			return;
-		}
-
-		fetchPreview(path, token)
-			.then((text) => {
-				previewContent = text;
-				previewError = '';
-			})
-			.catch((e) => {
-				previewError = e instanceof Error ? e.message : t('settings.loadError');
-			})
-			.finally(() => { previewLoading = false; });
+		previewName = name;
 	}
 
 	function closePreview() {
-		if (previewMediaUrl) {
-			URL.revokeObjectURL(previewMediaUrl);
-			previewMediaUrl = '';
-		}
 		previewOpen = false;
-		previewName = '';
 		previewPath = '';
-		previewContent = '';
-		previewError = '';
-		previewMode = 'text';
+		previewName = '';
 	}
 
 	async function deleteFile(path: string, isDirectory: boolean) {
@@ -365,11 +295,11 @@
 
 	onMount(() => {
 		fetchServerRootPath(token)
-			.then((p) => {
-				serverRootPath = p;
-				if (p && p !== '/') currentPath = p;
-			})
-			.catch(() => {});
+				.then((p) => {
+					serverRootPath = p;
+					if (p && p !== '/') currentPath = p;
+				})
+				.catch(() => {});
 
 		const handler = (e: CustomEvent<string>) => {
 			const path = e.detail?.trim() || '/';
@@ -407,62 +337,62 @@
 				{t('workspace.path')} <span class="font-mono text-slate-700 dark:text-gray-300">{content.current_path}</span>
 			</div>
 			<div class="relative">
-					<button
+				<button
 						type="button"
 						class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-gray-500 bg-white dark:bg-gray-700 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-gray-200 hover:bg-slate-50 dark:hover:bg-gray-600"
 						onclick={(e) => openAddMenu(e)}
 						aria-haspopup="true"
 						aria-expanded={addMenuOpen}
-					>
-						<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-							<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-						</svg>
-						{t('workspace.add')}
-						<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-							<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-						</svg>
-					</button>
-					{#if addMenuOpen}
-						<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-						<div
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+					</svg>
+					{t('workspace.add')}
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+					</svg>
+				</button>
+				{#if addMenuOpen}
+					<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+					<div
 							class="absolute right-0 top-full z-20 mt-1 min-w-[10rem] rounded-lg border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-lg py-1"
 							role="menu"
 							tabindex="-1"
 							onclick={(e) => e.stopPropagation()}
-						>
-							<button type="button" class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-gray-600" role="menuitem" onclick={chooseFiles}>
-								{t('workspace.addFiles')}
-							</button>
-							<button type="button" class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-gray-600" role="menuitem" onclick={chooseFolder}>
-								{t('workspace.addFolder')}
-							</button>
-						</div>
-					{/if}
-					<input
+					>
+						<button type="button" class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-gray-600" role="menuitem" onclick={chooseFiles}>
+							{t('workspace.addFiles')}
+						</button>
+						<button type="button" class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-gray-600" role="menuitem" onclick={chooseFolder}>
+							{t('workspace.addFolder')}
+						</button>
+					</div>
+				{/if}
+				<input
 						bind:this={fileInput}
 						type="file"
 						multiple
 						class="hidden"
 						accept="*/*"
 						onchange={onFileInputChange}
-					/>
-					<input
+				/>
+				<input
 						bind:this={folderInput}
 						type="file"
 						class="hidden"
 						webkitdirectory
 						onchange={onFolderInputChange}
-					/>
-				</div>
+				/>
+			</div>
 		</div>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
-			class="min-h-0 flex-1 flex flex-col rounded-lg border border-slate-200 dark:border-gray-600 transition-colors {dragOver ? 'border-blue-400 dark:border-blue-500 bg-blue-50/50 dark:bg-blue-900/20' : ''}"
-			ondrop={handleDrop}
-			ondragover={handleDragOver}
-			ondragleave={handleDragLeave}
-			role="region"
-			aria-label={t('workspace.dropFiles')}
+				class="min-h-0 flex-1 flex flex-col rounded-lg border border-slate-200 dark:border-gray-600 transition-colors {dragOver ? 'border-blue-400 dark:border-blue-500 bg-blue-50/50 dark:bg-blue-900/20' : ''}"
+				ondrop={handleDrop}
+				ondragover={handleDragOver}
+				ondragleave={handleDragLeave}
+				role="region"
+				aria-label={t('workspace.dropFiles')}
 		>
 			{#if dragOver}
 				<div class="flex flex-1 items-center justify-center rounded-lg border-2 border-dashed border-blue-400 dark:border-blue-500 bg-blue-50/50 dark:bg-blue-900/20 p-6 text-center text-slate-600 dark:text-gray-300">
@@ -470,15 +400,15 @@
 				</div>
 			{:else}
 				<FileList
-					directories={content.directories}
-					files={content.files}
-					currentPath={content.current_path}
-					parentPath={content.parent_path}
-					rootPath={rootPath}
-					onOpenDir={openDir}
-					onPreview={openPreview}
-					onDownload={downloadFile}
-					onDelete={deleteFile}
+						directories={content.directories}
+						files={content.files}
+						currentPath={content.current_path}
+						parentPath={content.parent_path}
+						rootPath={rootPath}
+						onOpenDir={openDir}
+						onPreview={openPreview}
+						onDownload={downloadFile}
+						onDelete={deleteFile}
 				/>
 			{/if}
 		</div>
@@ -488,49 +418,10 @@
 	{/if}
 </div>
 
-{#if previewOpen}
-	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby="preview-title"
-		tabindex="-1"
-		onclick={(e) => e.target === e.currentTarget && closePreview()}
-		onkeydown={(e) => e.key === 'Escape' && closePreview()}
-	>
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<div class="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-xl bg-white dark:bg-gray-800 shadow-xl" onclick={(e) => e.stopPropagation()}>
-			<div class="flex items-center justify-between gap-3 border-b border-slate-200 dark:border-gray-600 px-4 py-3">
-				<h2 id="preview-title" class="truncate text-lg font-medium text-slate-800 dark:text-gray-200">
-					{previewName}
-				</h2>
-				<button
-					type="button"
-					class="shrink-0 rounded p-2 text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-700"
-					aria-label={t('common.close')}
-					onclick={closePreview}
-				>
-					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-					</svg>
-				</button>
-			</div>
-			<div class="min-h-0 flex-1 overflow-auto p-4 flex items-center justify-center">
-				{#if previewLoading}
-					<p class="text-slate-500 dark:text-gray-400">{t('common.loading')}</p>
-				{:else if previewError}
-					<p class="text-red-600 dark:text-red-400">{previewError}</p>
-				{:else if previewMode === 'image' && previewMediaUrl}
-					<img src={previewMediaUrl} alt={previewName} class="max-w-full max-h-[80vh] object-contain rounded" />
-				{:else if previewMode === 'video' && previewMediaUrl}
-					<video src={previewMediaUrl} controls class="max-w-full max-h-[80vh] rounded">
-						<track kind="captions" />
-					</video>
-				{:else}
-					<pre class="w-full whitespace-pre-wrap break-words font-mono text-sm text-slate-800 dark:text-gray-200"><code>{previewContent}</code></pre>
-				{/if}
-			</div>
-		</div>
-	</div>
-{/if}
+<FilePreview
+		open={previewOpen}
+		path={previewPath}
+		name={previewName}
+		token={token}
+		onClose={closePreview}
+/>

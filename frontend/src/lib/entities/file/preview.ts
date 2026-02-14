@@ -77,3 +77,29 @@ export function getFileIconType(name: string, extension?: string | null): FileIc
 		lowerName.startsWith('.env') || lowerName.endsWith('.example')) return 'text';
 	return 'default';
 }
+
+export type PreviewMode =
+	| 'text'
+	| 'image'
+	| 'video'
+	| 'audio'
+	| 'pdf'
+	| 'archive'
+	| 'config'
+	| 'unsupported';
+
+export function getPreviewMode(name: string, extension?: string | null): PreviewMode {
+	const ext = (extension ?? name.split('.').pop() ?? '').toLowerCase().replace(/^\./, '');
+	const lowerName = name.toLowerCase();
+
+	if (ext && IMAGE_EXTENSIONS.has(ext)) return 'image';
+	if (ext && VIDEO_EXTENSIONS.has(ext)) return 'video';
+	if (ext && AUDIO_EXTENSIONS.has(ext)) return 'audio';
+	if (ext === 'pdf') return 'pdf';
+	if (ext && ARCHIVE_EXTENSIONS.has(ext)) return 'archive';
+	if (ext && CONFIG_EXTENSIONS.has(ext)) return 'config';
+	if (TEXT_PREVIEW_EXTENSIONS.has(ext) || TEXT_PREVIEW_NAMES.has(lowerName) ||
+		lowerName.startsWith('.env') || lowerName.endsWith('.example')) return 'text';
+
+	return 'unsupported';
+}

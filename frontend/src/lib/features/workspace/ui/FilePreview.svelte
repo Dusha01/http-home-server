@@ -33,6 +33,8 @@
     let audioRef = $state<HTMLAudioElement | null>(null);
     let videoRef = $state<HTMLVideoElement | null>(null);
     let fileSize = $state<number | null>(null);
+    let loadId = 0;
+    let editRequested = $state(0);
 
     $effect(() => {
         if (open) {
@@ -50,6 +52,7 @@
         content = '';
         error = '';
         fileSize = null;
+        editRequested = 0;
 
         if (audioRef) {
             audioRef.pause();
@@ -62,9 +65,10 @@
     }
 
     async function loadPreview() {
-        cleanup();
-        loading = true;
+        const currentLoadId = ++loadId;
+        content = '';
         error = '';
+        loading = true;
 
         try {
             const extension = name.split('.').pop() ?? null;
@@ -75,7 +79,7 @@
                 case 'image':
                 case 'video':
                 case 'audio':
-                    await loadMedia();
+                    await loadMedia(currentLoadId);
                     break;
                 case 'pdf':
                     await loadPdf();
@@ -85,19 +89,23 @@
                     break;
                 case 'config':
                 case 'text':
-                    await loadText();
+                    await loadText(currentLoadId);
                     break;
                 default:
                     error = t('preview.unsupportedFormat');
             }
         } catch (e) {
-            error = e instanceof Error ? e.message : t('settings.loadError');
+            if (currentLoadId === loadId) {
+                error = e instanceof Error ? e.message : t('settings.loadError');
+            }
         } finally {
-            loading = false;
+            if (currentLoadId === loadId) {
+                loading = false;
+            }
         }
     }
 
-    async function loadMedia() {
+    async function loadMedia(expectedLoadId: number) {
         const q = `path=${encodeURIComponent(path)}&as_attachment=false`;
         const endpoint = token ? `/share/download?${q}` : `/share/public/download?${q}`;
         const url = `${API_BASE}${endpoint}`;
@@ -110,6 +118,8 @@
             throw new Error(response.statusText || 'Failed to load');
         }
 
+        if (expectedLoadId !== loadId) return;
+
         // Получаем размер файла из заголовков
         const contentLength = response.headers.get('content-length');
         if (contentLength) {
@@ -117,10 +127,14 @@
         }
 
         const blob = await response.blob();
+        if (expectedLoadId !== loadId) return;
+        if (mediaUrl && mediaUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(mediaUrl);
+        }
         mediaUrl = URL.createObjectURL(blob);
     }
 
-    async function loadText() {
+    async function loadText(expectedLoadId: number) {
         const q = `path=${encodeURIComponent(path)}`;
         const endpoint = token ? `/share/preview?${q}` : `/share/public/preview?${q}`;
         const url = `${API_BASE}${endpoint}`;
@@ -133,7 +147,10 @@
             throw new Error(response.statusText || 'Failed to load preview');
         }
 
-        content = await response.text();
+        const text = await response.text();
+        if (expectedLoadId === loadId) {
+            content = text;
+        }
     }
 
     async function loadPdf() {
@@ -167,16 +184,14 @@
     }
 
     async function handleSaveContent(newContent: string) {
-        if (!token) return;
-
         const q = `path=${encodeURIComponent(path)}`;
-        const endpoint = `/share/update?${q}`;
+        const endpoint = token ? `/share/update?${q}` : `/share/public/update?${q}`;
         const url = `${API_BASE}${endpoint}`;
 
         const response = await fetch(url, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${token}`,
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 'Content-Type': 'text/plain;charset=UTF-8'
             },
             body: newContent
@@ -279,6 +294,18 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0 0l-3-3m3 3l3-3" />
                         </svg>
                     </button>
+                    {#if canEdit && (mode === 'text' || mode === 'config')}
+                        <button
+                                type="button"
+                                class="shrink-0 rounded p-2 text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-700"
+                                aria-label={t('common.edit')}
+                                onclick={() => editRequested++}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                        </button>
+                    {/if}
                     <button
                             type="button"
                             class="shrink-0 rounded p-2 text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-700"
@@ -335,7 +362,7 @@
                                     controls
                                     class="w-full"
                                     onloadedmetadata={() => audioRef?.play()}
-                            />
+                            ></audio>
                         </div>
                     </div>
 
@@ -344,7 +371,7 @@
                             src={`${mediaUrl}#toolbar=0&navpanes=0`}
                             class="w-full h-[calc(90vh-8rem)] border-0 rounded"
                             title={name}
-                    />
+                    ></iframe>
 
                 {:else if mode === 'archive'}
                     <div class="p-4">
@@ -360,9 +387,9 @@
                                 content={content}
                                 filename={name}
                                 language={mode === 'config' ? 'config' : undefined}
-                                editable={canEdit && !!token}
+                                editable={false}
+                                editRequested={editRequested}
                                 onSave={handleSaveContent}
-                                onCancel={() => {}}
                         on:error={handleTextPreviewError}
                         on:save={() => {
                         if (onFileUpdate) onFileUpdate();

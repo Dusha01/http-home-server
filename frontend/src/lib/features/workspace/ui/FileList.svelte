@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { FileInfo } from '$lib/entities/file';
-	import { isTextPreviewable, isImagePreviewable, isVideoPreviewable, getFileIconType, type FileIconType } from '$lib/entities/file/preview';
+	import { getPreviewMode, getFileIconType, type FileIconType } from '$lib/entities/file/preview';
 	import { t } from '$lib/shared/locale';
 
 	interface Props {
@@ -46,9 +46,7 @@
 	}
 
 	function canPreview(item: FileInfo) {
-		return isTextPreviewable(item.name, item.extension ?? null) ||
-				isImagePreviewable(item.name, item.extension ?? null) ||
-				isVideoPreviewable(item.name, item.extension ?? null);
+		return getPreviewMode(item.name, item.extension ?? null) !== 'unsupported';
 	}
 
 	function getIcon(type: FileIconType, fileName?: string): string {

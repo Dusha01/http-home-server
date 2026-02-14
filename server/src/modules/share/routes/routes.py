@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional, List
 
 import os
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, BackgroundTasks, Request
 from fastapi.responses import FileResponse, PlainTextResponse
 
 from src.core.config import config
@@ -181,6 +181,19 @@ def create_share_router() -> APIRouter:
         content = await file_service.get_file_content_as_text(path)
         return PlainTextResponse(content)
 
+    @router.post("/update")
+    async def update_file(
+        request: Request,
+        path: str = Query(..., description="Путь к текстовому файлу"),
+        file_service: FileService = Depends(get_file_service),
+        _: Optional[str] = Depends(get_token_if_required),
+    ):
+        """Обновление содержимого текстового файла (редактирование)."""
+        body = await request.body()
+        content = body.decode("utf-8", errors="replace")
+        await file_service.update_file_content(path, content)
+        return {"success": True}
+
     @router.post("/upload", response_model=UploadResponse)
     async def upload_file(
         directory: str = Query(..., description="Путь к директории для загрузки"),
@@ -294,6 +307,19 @@ def create_share_router() -> APIRouter:
         """Превью текстового файла (без обязательной авторизации)."""
         content = await file_service.get_file_content_as_text(path)
         return PlainTextResponse(content)
+
+    @router.post("/public/update")
+    async def public_update_file(
+        request: Request,
+        path: str = Query(..., description="Путь к текстовому файлу"),
+        file_service: FileService = Depends(get_file_service),
+        _: Optional[str] = Depends(get_optional_token),
+    ):
+        """Обновление содержимого текстового файла (редактирование, публичный доступ)."""
+        body = await request.body()
+        content = body.decode("utf-8", errors="replace")
+        await file_service.update_file_content(path, content)
+        return {"success": True}
 
     # ============= ПРОВОДНИК (ФАЙЛОВАЯ СИСТЕМА ПК) =============
 

@@ -24,6 +24,7 @@ class FileUtils:
     TEXT_PREVIEW_NAMES: Set[str] = {
         '.env', '.env.example', '.env.local', '.env.sample',
         '.config', '.gitignore', '.dockerignore', '.editorconfig',
+        'readme', 'dockerfile', 'makefile'
     }
     
     IMAGE_EXTENSIONS: Set[str] = {

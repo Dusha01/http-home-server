@@ -237,6 +237,27 @@ class FileService:
         except (OSError, IOError) as e:
             raise HTTPException(status_code=500, detail=str(e))
 
+    async def update_file_content(self, path: str, content: str) -> None:
+        """
+        Запись содержимого в текстовый файл (для редактирования превью).
+        """
+        shared_dir, relative_path, full_path = self._resolve_path(path)
+        if not full_path.exists():
+            raise HTTPException(status_code=404, detail="File not found")
+        if not full_path.is_file():
+            raise HTTPException(status_code=400, detail="Path is not a file")
+        if not FileUtils.is_text_previewable(full_path):
+            raise HTTPException(
+                status_code=400,
+                detail="Text edit not supported for this file type",
+            )
+        if not os.access(full_path, os.W_OK):
+            raise HTTPException(status_code=403, detail="File is not writable")
+        try:
+            full_path.write_text(content, encoding="utf-8")
+        except (OSError, IOError) as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
     async def upload_file(
         self,
         directory_path: str,

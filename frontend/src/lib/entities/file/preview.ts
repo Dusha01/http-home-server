@@ -11,7 +11,8 @@ const TEXT_PREVIEW_EXTENSIONS = new Set([
 
 const TEXT_PREVIEW_NAMES = new Set([
 	'.env', '.env.example', '.env.local', '.env.sample',
-	'.config', '.gitignore', '.dockerignore', '.editorconfig'
+	'.config', '.gitignore', '.dockerignore', '.editorconfig',
+	'readme', 'dockerfile'
 ]);
 
 /** Расширения для превью изображений (совпадает с бэкендом FileUtils.IMAGE_EXTENSIONS). */

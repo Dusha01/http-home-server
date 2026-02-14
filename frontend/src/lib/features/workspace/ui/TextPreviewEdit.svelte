@@ -3,13 +3,14 @@
     import { t } from '$lib/shared/locale';
 
     let hljs: any = null;
-    let hljsLoaded = false;
+    let hljsLoaded = $state(false);
 
     interface Props {
         content: string;
         filename: string;
         language?: string;
         editable?: boolean;
+        editRequested?: number;
         onSave?: (content: string) => Promise<void>;
         onCancel?: () => void;
     }
@@ -19,12 +20,13 @@
         filename,
         language = 'plaintext',
         editable = false,
+        editRequested = 0,
         onSave,
         onCancel
     }: Props = $props();
 
-    let content = $state(initialContent);
-    let editedContent = $state(initialContent);
+    let content = $state('');
+    let editedContent = $state('');
     let isEditing = $state(false);
     let isSaving = $state(false);
     let lineCount = $state(0);
@@ -51,11 +53,18 @@
     });
 
     $effect(() => {
-        if (initialContent !== content) {
+        if (!isEditing && initialContent !== content) {
             content = initialContent;
             editedContent = initialContent;
-            updateLineCount(initialContent);
-            highlightContent();
+        }
+        updateLineCount(isEditing ? editedContent : content);
+        highlightContent();
+    });
+
+    $effect(() => {
+        if (editRequested > 0 && !isEditing) {
+            isEditing = true;
+            editedContent = content;
         }
     });
 
@@ -78,7 +87,7 @@
 
         try {
             const detected = hljs.highlightAuto(content, getLanguageHints());
-            highlightedHtml = detected.value;
+            highlightedHtml = String(detected.value).replace(/^\n+|\n+$/g, '');
         } catch (e) {
             console.error('Highlight error:', e);
             highlightedHtml = escapeHtml(content);
@@ -86,7 +95,8 @@
     }
 
     function getLanguageHints(): string[] {
-        const ext = filename.split('.').pop()?.toLowerCase();
+        const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+        const lowerName = filename.toLowerCase();
         const extToLang: Record<string, string> = {
             'js': 'javascript',
             'jsx': 'javascript',
@@ -112,9 +122,12 @@
             'sql': 'sql',
             'sh': 'bash',
             'bash': 'bash',
-            'dockerfile': 'dockerfile'
+            'dockerfile': 'dockerfile',
+            'readme': 'markdown'
         };
-        return ext && extToLang[ext] ? [extToLang[ext]] : [];
+        if (ext && extToLang[ext]) return [extToLang[ext]];
+        if (lowerName === 'dockerfile' || lowerName === 'readme') return [extToLang[lowerName] ?? 'plaintext'];
+        return [];
     }
 
     function escapeHtml(text: string): string {
@@ -154,12 +167,9 @@
     }
 
     function handleCancel() {
-        if (onCancel) {
-            onCancel();
-        } else {
-            isEditing = false;
-            editedContent = content;
-        }
+        isEditing = false;
+        editedContent = content;
+        onCancel?.();
     }
 
     function handleTextareaInput(e: Event) {
@@ -186,20 +196,6 @@
 </script>
 
 <div class="text-preview relative">
-    {#if editable && !isEditing}
-        <div class="sticky top-0 z-10 flex justify-end p-2 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-            <button
-                    onclick={handleEdit}
-                    class="flex items-center gap-1 px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                {t('common.edit')}
-            </button>
-        </div>
-    {/if}
-
     {#if isEditing}
         <div class="editing-mode">
             <div class="sticky top-0 z-10 flex items-center justify-between gap-2 p-2 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
@@ -265,10 +261,10 @@
 
             <!-- Подсвеченный код -->
             <pre
-                    class="flex-1 p-4 font-mono text-sm overflow-x-auto leading-6"
+                    class="flex-1 min-w-0 p-4 font-mono text-sm overflow-x-auto leading-6"
                     class:hljs={hljsLoaded}
             >
-                <code innerHTML={highlightedHtml}></code>
+                <code>{@html highlightedHtml}</code>
             </pre>
         </div>
     {/if}
@@ -286,11 +282,14 @@
         white-space: pre-wrap;
         word-wrap: break-word;
         background: transparent;
+        min-width: 0;
     }
 
     .view-mode code {
         font-family: inherit;
         background: transparent;
+        display: block;
+        width: 100%;
     }
 
     .line-numbers {

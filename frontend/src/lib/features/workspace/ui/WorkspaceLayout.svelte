@@ -423,5 +423,7 @@
 		path={previewPath}
 		name={previewName}
 		token={token}
+		canEdit={true}
 		onClose={closePreview}
+		onFileUpdate={() => load(currentPath)}
 />

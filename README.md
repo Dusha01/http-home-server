@@ -1,52 +1,90 @@
-# Home Server
+# Home File Server
 
-Локальный HTTP‑сервер для обмена файлами в домашней сети: веб‑интерфейс, загрузка/скачивание, превью, токены и QR‑вход.
+Локальный HTTP‑сервер для обмена файлами в домашней сети. Позволяет просматривать, загружать и скачивать файлы через удобный веб‑интерфейс с защитой токенами и быстрым входом по QR‑коду.
 
-A local HTTP server for file sharing on your home network: web UI, upload/download, preview, token auth and QR login.
+## О проекте
+
+**Home File Server** — это легковесное приложение для безопасного обмена файлами в локальной сети (LAN). Идеально подходит для передачи файлов между компьютерами и мобильными устройствами без облачных сервисов.
+
+### Возможности
+
+- **Веб‑интерфейс** — просмотр директорий, превью изображений и текстовых файлов, загрузка и скачивание
+- **Токеновая аутентификация** — доступ только по секретному токену; можно создавать несколько токенов
+- **QR‑вход** — при запуске сервер показывает QR‑код; отсканировав его камерой телефона, можно быстро войти
+- **Транслируемые папки** — настраиваемый список общих директорий с возможностью включения/отключения
+- **API** — REST API для интеграции (генерация токенов, операции с файлами)
+- **Режимы запуска** — с встроенной раздачей веб‑интерфейса (один порт) или отдельно API + фронт (режим разработки)
+
+### Стек технологий
+
+- **Backend:** FastAPI (Python 3.10+)
+- **Frontend:** SvelteKit, Svelte 5
+- **Хранилище:** JSON‑файлы (токены, список папок), файловая система
 
 ---
 
-## Быстрый старт / Quick start
+## Быстрый старт
 
 После клонирования репозитория запуск одной командой:
-
-After cloning, run with a single command:
 
 ```bash
 ./start.sh
 ```
 
-или через Makefile / or via Makefile:
+или через Makefile:
 
 ```bash
 make run
 ```
 
-Скрипт при отсутствии системных зависимостей предложит установить их (yes/no). При согласии зависимости (Python, Node.js) устанавливаются автоматически через пакетный менеджер (apt, dnf, pacman, brew). Затем устанавливаются зависимости проекта, собирается фронтенд и запускается сервер. Веб‑интерфейс: `http://localhost:8080` (или `http://<IP>:8080` с другого устройства в сети).
+Скрипт при отсутствии системных зависимостей предложит установить их (yes/no). При согласии Python и Node.js устанавливаются автоматически через пакетный менеджер (apt, dnf, pacman, brew). Затем устанавливаются зависимости проекта, собирается фронтенд и запускается сервер.
 
-The script will prompt to install missing system dependencies (yes/no). If agreed, Python and Node.js are installed via the system package manager. Then project dependencies are installed, frontend is built and the server starts. Web UI: `http://localhost:8080` (or `http://<IP>:8080` from another device).
+**Веб‑интерфейс:** `http://localhost:8080` (или `http://<IP>:8080` с другого устройства в сети).
 
-При первом запуске без настроенного `.env` скрипт не задаёт режим аутентификации — сервер спросит в консоли: **с токеном (y)** или **без (n)**. Чтобы запуск был полностью без вопросов, создайте `server/.env` и задайте `AUTH_REQUIRED=true` или `AUTH_REQUIRED=false`.
-
-On first run without a `.env` file, the server will ask in the console: **with token (y)** or **without (n)**. For a fully non-interactive run, create `server/.env` and set `AUTH_REQUIRED=true` or `AUTH_REQUIRED=false`.
+При первом запуске без настроенного `.env` сервер спросит в консоли: **с токеном (y)** или **без (n)**. Чтобы запуск был полностью без вопросов, создайте `server/.env` и задайте `AUTH_REQUIRED=true` или `AUTH_REQUIRED=false`.
 
 ---
 
-## Требования / Requirements
+## Требования
 
 - **Node.js** 18+ и **npm**
 - **Python** 3.10+
 
 Если чего‑то не хватает, при запуске `./start.sh` или `make run` появится предложение установить зависимости (yes/no). Отдельно проверить и установить только системные зависимости: `make install-deps`.
 
-If any are missing, `./start.sh` or `make run` will prompt to install them (yes/no). To only check/install system deps: `make install-deps`.
+---
+
+## Структура проекта
+
+```
+Home-server/
+├── server/              # Backend (FastAPI)
+│   ├── src/
+│   │   ├── app.py       # Точка входа
+│   │   ├── core/        # Конфигурация, startup
+│   │   ├── modules/
+│   │   │   ├── auth/    # Аутентификация, токены, QR
+│   │   │   └── share/   # Файлы, директории, загрузки
+│   │   └── i18n.py      # Локализация (ru/en)
+│   ├── storage/         # Токены, shared_directories.json
+│   └── requirements.txt
+├── frontend/            # SvelteKit SPA
+│   ├── src/
+│   │   ├── routes/      # /auth/login, /workspace
+│   │   └── lib/         # Компоненты, API
+│   └── package.json
+├── docs/                # Документация по деплою
+├── scripts/             # Скрипты запуска, установки
+├── start.sh             # Основной скрипт запуска
+└── Makefile
+```
 
 ---
 
-## Makefile и CLI / Makefile and CLI
+## Makefile и CLI
 
-| Команда / Command | Описание / Description |
-|-------------------|------------------------|
+| Команда | Описание |
+|---------|----------|
 | `make run` | Быстрый запуск (если уже установлено — только сервер; иначе полная установка и запуск). |
 | `make run-full` | Полный цикл как `./start.sh`. |
 | `make run-server` | Только запуск сервера (venv и статика должны быть уже готовы). |
@@ -58,58 +96,33 @@ If any are missing, `./start.sh` or `make run` will prompt to install them (yes/
 | `make install-cli` | Один раз установить команду `home-server` в PATH (~/.local/bin). |
 | `make uninstall-cli` | Удалить команду `home-server` из PATH. |
 
-**Запуск из любой директории (CLI):** один раз выполните `make install-cli`. После этого команда `home-server` будет доступна из любого места и запустит сервер (из корня репозитория). Убедитесь, что `~/.local/bin` в вашем PATH.
-
-**Run from anywhere (CLI):** run `make install-cli` once. Then the `home-server` command will be available from any directory. Ensure `~/.local/bin` is in your PATH.
+**Запуск из любой директории:** выполните `make install-cli`. После этого команда `home-server` будет доступна из любого места. Убедитесь, что `~/.local/bin` в вашем PATH.
 
 ---
 
-## Windows
 
-На Windows используйте PowerShell:
-
-**Run on Windows (PowerShell):**
-
-```powershell
-.\start.ps1
-```
-
-Скрипт проверяет наличие **Python 3.10+** и **Node.js 18+**. Если чего-то не хватает — предложит установить (yes/no). При согласии установка выполняется через **winget** (встроен в Windows 10/11). После установки зависимостей перезапустите терминал и снова выполните `.\start.ps1`.
-
-The script checks for Python 3.10+ and Node.js 18+. If something is missing, it will prompt to install (yes/no). If agreed, it uses **winget**. Restart the terminal after installation, then run `.\start.ps1` again.
-
-- Только проверить/установить системные зависимости: `.\scripts\install-deps.ps1`  
-- Полная переустановка (venv, node_modules, static): `.\start.ps1 --clean`  
-- Установить запуск из любой папки: `.\scripts\install-cli.ps1` — затем можно вызывать `home-server.ps1` из любого места. Удаление: `.\scripts\install-cli.ps1 --uninstall`
-
----
-
-## Вход по QR и камера / QR login and camera
+## Вход по QR и камера
 
 Страница входа позволяет отсканировать QR‑код с токеном камерой устройства. **Браузер даёт доступ к камере только в безопасном контексте:**
 
-The login page can scan a QR code with the device camera. **Browsers allow camera access only in a secure context:**
-
-- по **HTTPS** (например `https://ваш-сервер:8080`), или  
+- по **HTTPS** (например `https://ваш-сервер:8080`), или
 - с **http://localhost** / **http://127.0.0.1** (доступ с того же компьютера, где запущен сервер).
-
-- over **HTTPS** (e.g. `https://your-server:8080`), or  
-- from **http://localhost** / **http://127.0.0.1** (when opening from the same machine where the server runs).
 
 При заходе по **http://IP** (например `http://192.168.1.5:8080`) с телефона или другого ПК камера в браузере недоступна — это ограничение безопасности браузера. В этом случае введите токен вручную в поле на странице входа.
 
-When opening **http://IP** (e.g. `http://192.168.1.5:8080`) from a phone or another PC, the browser will not allow camera access — this is a browser security restriction. In that case, enter the token manually on the login page.
+**Важно:** при запуске с `STATIC_DIR` (встроенный веб‑интерфейс) ссылки в консоли автоматически используют `localhost:<порт>` или `<IP>:<порт>` сервера. При режиме разработки (отдельный фронт) используется `FRONTEND_URL` (по умолчанию `http://localhost:5173`).
 
 ---
 
-## Переменные окружения / Environment variables
+## Переменные окружения
 
-Примеры и полное описание: **[server/.env.example](server/.env.example)**.
+Полное описание: **[server/.env.example](server/.env.example)**.
 
-| Переменная / Variable | Описание / Description |
-|------------------------|------------------------|
+| Переменная | Описание |
+|------------|----------|
 | `AUTH_REQUIRED` | `true` — доступ по токену, `false` — без авторизации. Если не задано — вопрос в консоли при запуске. |
-| `STATIC_DIR` | Путь к папке со сборкой фронта (например `./frontend/build`). Задаётся автоматически в `start.sh`. |
+| `STATIC_DIR` | Путь к папке со сборкой фронта (например `./frontend/build`). Задаётся автоматически в `start.sh`. При заданном значении ссылки в консоли и QR указывают на сервер (`server_host:server_port`). |
+| `FRONTEND_URL` | URL веб‑интерфейса только при отдельном запуске фронта (dev). По умолчанию `http://localhost:5173`. При `STATIC_DIR` игнорируется. |
 | `SERVER_HOST` | Хост (по умолчанию `0.0.0.0`). |
 | `SERVER_PORT` | Порт (по умолчанию `8080`). |
 | `LANGUAGE` | Язык консоли: `ru` или `en`. |
@@ -117,22 +130,18 @@ When opening **http://IP** (e.g. `http://192.168.1.5:8080`) from a phone or anot
 | `SECRET_KEY` | Секретный ключ (обязательно смените в production). |
 | `MAX_FILE_SIZE` | Максимальный размер загрузки (например `100MB`). |
 
-Копирование примера в рабочий файл:
-
-Copy the example to your env file:
+Создание рабочего файла:
 
 ```bash
 cp server/.env.example server/.env
-# отредактируйте server/.env при необходимости / edit server/.env if needed
+# отредактируйте server/.env при необходимости
 ```
 
 ---
 
-## Сборка для релиза / Build for release
+## Сборка для релиза
 
 1. **Только фронтенд** (для разработки с отдельным сервером):
-
-   Frontend only (for development with a separate server):
 
    ```bash
    cd frontend && npm ci && npm run build
@@ -142,37 +151,34 @@ cp server/.env.example server/.env
 
 2. **Полный запуск (фронт + бэкенд с одной точки):**
 
-   Full run (frontend + backend from one process):
-
    ```bash
    ./start.sh
    ```
 
    Либо вручную: собрать фронт (п. 1), затем в `server/.env` задать `STATIC_DIR` (абсолютный путь к `frontend/build`) и `AUTH_REQUIRED`, после чего запустить `python -m src` из папки `server`.
 
-   Or manually: build frontend (step 1), then set `STATIC_DIR` (absolute path to `frontend/build`) and `AUTH_REQUIRED` in `server/.env`, and run `python -m src` from the `server` directory.
-
 ---
 
-# **Пример использования**
+## Примеры использования
 
-### Запуск основного сервера без токена 
+### Запуск основного сервера без токена
 ![Запуск основного без токена сервера](img/pusk_no_token.png)
 
 ### Запуск основного сервера с токеном
 ![Запуск основного c токеном сервера](img/pusk_with_token.png)
 
-### Веб-интерфейс рабочего пространства транслируемой папки
+### Веб‑интерфейс рабочего пространства транслируемой папки
 ![gui web](img/workspace_front.png)
-
-## Документация / Documentation
-
-
-- [docs/DEPLOY.ru.md](docs/DEPLOY.ru.md) — сборка и запуск для релиза (RU)
-- [docs/DEPLOY.en.md](docs/DEPLOY.en.md) — build and run for release (EN)
 
 ---
 
-## Лицензия / License
+## Документация
+
+- [docs/DEPLOY.ru.md](docs/DEPLOY.ru.md) — сборка и запуск для релиза
+- [README_en.md](README_en.md) — English documentation
+
+---
+
+## Лицензия
 
 См. [LICENSE](LICENSE).

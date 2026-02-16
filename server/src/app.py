@@ -37,7 +37,7 @@ async def lifespan(app: FastAPI, auth_required: bool = True):
     try:
         auth_service = AuthService(
             server_url=f"http://{config.server_host}:{config.server_port}",
-            frontend_url=config.frontend_url,
+            frontend_url=config.effective_frontend_url,
         )
         dir_service = DirectoryService(
             storage_file=config.storage_dir / "shared_directories.json",
@@ -123,7 +123,7 @@ def create_app(auth_required: bool = True) -> FastAPI:
             auth_required = getattr(app.state, "auth_required", True)
             base = f"http://{config.server_host}:{config.server_port}"
             auth_prefix = "/api" if static_resolved else ""
-            login_page = f"{config.frontend_url.rstrip('/')}/auth/login" if not (static_resolved and static_resolved.is_dir()) else f"{base}{auth_prefix}/auth/login"
+            login_page = f"{config.effective_frontend_url}/auth/login"
             return {
                 "name": "Home File Server",
                 "version": __version__,

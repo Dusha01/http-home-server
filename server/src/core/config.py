@@ -2,6 +2,7 @@
 Конфигурация приложения (Pydantic Settings).
 Пути заданы относительно корня проекта (папка server).
 """
+import socket
 from typing import Set, List, Optional
 from pathlib import Path
 from pydantic import Field, field_validator
@@ -114,6 +115,32 @@ class Settings(BaseSettings):
     @property
     def allowed_extensions_list(self) -> List[str]:
         return list(self.allowed_extensions)
+
+    def _get_local_ip(self) -> str:
+        """Определяет LAN IP при бинде на 0.0.0.0."""
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except OSError:
+            return "localhost"
+
+    @property
+    def effective_frontend_url(self) -> str:
+        """
+        URL веб-интерфейса для QR и ссылок в консоли.
+        Если STATIC_DIR задан и папка существует — фронт раздаётся с сервера.
+        При server_host=0.0.0.0 используется LAN IP (для QR с телефона) или localhost.
+        Иначе — отдельный фронт (dev) → frontend_url (например localhost:5173).
+        """
+        if self.static_dir:
+            resolved = self.static_dir.resolve()
+            if resolved.is_dir():
+                host = self._get_local_ip() if self.server_host == "0.0.0.0" else self.server_host
+                return f"http://{host}:{self.server_port}"
+        return self.frontend_url.rstrip("/")
 
     def to_dict(self):
         return self.model_dump()

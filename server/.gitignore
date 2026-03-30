@@ -31,6 +31,8 @@ MANIFEST
 #   before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
+# В репозитории храним spec для CI/релизов
+!home-file-server.spec
 
 # Installer logs
 pip-log.txt

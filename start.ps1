@@ -64,7 +64,7 @@ function Confirm-Install {
 # Обработка флага --clean
 if ($args -contains "--clean") {
     Write-Warning "Full reinstall..."
-    $venvDir = Join-Path $ROOT "server\venv"
+    $venvDir = Join-Path $ROOT "server\.venv"
     $nodeModules = Join-Path $ROOT "frontend\node_modules"
     $staticDir = Join-Path $ROOT "server\static"
     if (Test-Path $venvDir) { Remove-Item -Recurse -Force $venvDir }
@@ -183,7 +183,7 @@ foreach ($d in @($dataDir, $logsDir, $staticDir)) {
 }
 
 # --- Виртуальное окружение Python ---
-$VENV_DIR = Join-Path $ROOT "server\venv"
+$VENV_DIR = Join-Path $ROOT "server\.venv"
 if (-not (Test-Path $VENV_DIR)) {
     Write-Info "Creating Python virtual environment..."
     & $PYTHON -m venv $VENV_DIR

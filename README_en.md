@@ -6,6 +6,9 @@ A local HTTP server for file sharing on your home network. Browse, upload, and d
 
 **Home File Server** is a lightweight application for secure file sharing on a local network (LAN). Ideal for transferring files between computers and mobile devices without cloud services.
 
+> ATTENTION!\
+> The assembly of the banner is only for the server side. The UI interface should be assembled manually!
+
 ### Features
 
 - **Web interface** — browse directories, preview images and text files, upload and download
@@ -23,9 +26,20 @@ A local HTTP server for file sharing on your home network. Browse, upload, and d
 
 ---
 
+## Requirements
+
+Install on your system:
+
+- **Python** 3.10+
+- **Node.js** 18+ and **npm**
+
+Python dependencies are installed into the virtual environment **`server/.venv`** (created and used by `./start.sh`, or create it yourself and install packages).
+
+---
+
 ## Quick start
 
-After cloning the repository, run with a single command:
+After cloning the repository:
 
 ```bash
 ./start.sh
@@ -37,20 +51,25 @@ or via Makefile:
 make run
 ```
 
-The script will prompt to install missing system dependencies (yes/no). If agreed, Python and Node.js are installed via the system package manager (apt, dnf, pacman, brew). Then project dependencies are installed, frontend is built, and the server starts.
+The `start.sh` script checks for Node.js, npm, and Python (it does **not** install them via the system package manager). If something is missing, it prints manual installation hints. When everything is present, it creates **`server/.venv`** if needed, installs `server/requirements.txt`, builds the frontend, and starts the server.
 
 **Web interface:** `http://localhost:8080` (or `http://<IP>:8080` from another device on the network).
 
 On first run without a configured `.env`, the server will ask in the console: **with token (y)** or **without (n)**. For fully non-interactive run, create `server/.env` and set `AUTH_REQUIRED=true` or `AUTH_REQUIRED=false`.
 
----
+### Manual setup (without start.sh)
 
-## Requirements
+```bash
+python3 -m venv server/.venv
+. server/.venv/bin/activate
+pip install -r server/requirements.txt
+cd frontend && npm ci && npm run build
+cd ..
+rm -rf server/static && cp -r frontend/build server/static
+cd server && STATIC_DIR="$(pwd)/static" python -m src
+```
 
-- **Node.js** 18+ and **npm**
-- **Python** 3.10+
-
-If any are missing, `./start.sh` or `make run` will prompt to install them (yes/no). To only check/install system dependencies: `make install-deps`.
+Or set `STATIC_DIR` in `server/.env` and run `python -m src` from the `server` directory.
 
 ---
 
@@ -66,53 +85,79 @@ Home-server/
 │   │   │   ├── auth/    # Authentication, tokens, QR
 │   │   │   └── share/   # Files, directories, uploads
 │   │   └── i18n.py      # Localization (ru/en)
+│   ├── tests/           # Tests (pytest)
 │   ├── storage/         # tokens.json, shared_directories.json
-│   └── requirements.txt
+│   ├── requirements.txt
+│   ├── requirements-dev.txt  # pytest, pyinstaller (CI / dev)
+│   └── .venv/           # Python venv (not in git)
 ├── frontend/            # SvelteKit SPA
 │   ├── src/
 │   │   ├── routes/      # /auth/login, /workspace
 │   │   └── lib/         # Components, API
 │   └── package.json
 ├── docs/                # Deploy documentation
-├── scripts/             # Run and install scripts
-├── start.sh             # Main run script
+├── scripts/             # Helpers (frontend build, run-cli)
+├── start.sh             # Run script (venv, npm, build, server)
 └── Makefile
 ```
 
 ---
 
-## Makefile and CLI
+## Makefile
 
 | Command | Description |
 |---------|-------------|
-| `make run` | Quick start (if already installed — server only; otherwise full install and run). |
+| `make run` | If `server/.venv` and `server/static` exist — server only; otherwise full cycle (`./start.sh`). |
 | `make run-full` | Full cycle like `./start.sh`. |
-| `make run-server` | Server only (venv and static must already be ready). |
-| `make install` | Install project dependencies (after `install-deps`: venv, npm, build). |
-| `make install-deps` | Check Python and Node.js; prompt to install if missing (yes/no). |
+| `make run-server` | Server only (venv and static must already exist). |
 | `make build` | Build frontend and copy to `server/static`. |
 | `make dev` | Development mode (server with reload). |
-| `make clean` | Remove venv, node_modules, server/static. |
-| `make install-cli` | Install `home-server` command in PATH (~/.local/bin). |
-| `make uninstall-cli` | Remove `home-server` from PATH. |
+| `make clean` | Remove `server/.venv`, `frontend/node_modules`, `server/static`. |
 
-**Run from anywhere:** run `make install-cli` once. Then the `home-server` command will be available from any directory. Ensure `~/.local/bin` is in your PATH.
+---
+
+## Dev: separate API and Vite
+
+After dependencies are installed in `server/.venv` and `frontend/node_modules`:
+
+```bash
+./scripts/run-cli.sh
+```
+
+---
+
+## CI
+
+On push to **`main`**, GitHub Actions runs Python tests (`pytest` under `server/`) and builds the PyInstaller binary (`server/home-file-server.spec`). The binary is uploaded as a workflow artifact.
+
+### Release on tag
+
+Pushing a tag matching **`v*`** (e.g. `v1.0.0`) runs the **Release** workflow: same tests, frontend build, **`home-file-server-static.zip`** (contents of `server/static`), binary **`home-file-server`**, and a **[GitHub Release](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases)** for that tag.
+
+**Example:**
+
+```bash
+git checkout main
+git pull
+git tag -a v1.0.0 -m "Release v1.0.0"
+git push origin v1.0.0
+```
+
+The binary does not embed the SPA; unpack the zip next to the binary and set **`STATIC_DIR`** to that static directory (see `server/.env.example`).
 
 ---
 
 ## Windows
 
-On Windows use PowerShell:
+Use PowerShell from the repo root:
 
 ```powershell
 .\start.ps1
 ```
 
-The script checks for **Python 3.10+** and **Node.js 18+**. If something is missing, it will prompt to install (yes/no). If agreed, installation uses **winget** (built into Windows 10/11). After installing dependencies, restart the terminal and run `.\start.ps1` again.
+The script checks for **Python 3.10+** and **Node.js 18+**. If something is missing, it will prompt to install via **winget** (optional). Virtual environment path: **`server\.venv`**.
 
-- Only check/install system dependencies: `.\scripts\install-deps.ps1`
-- Full reinstall (venv, node_modules, static): `.\start.ps1 --clean`
-- Install run-from-anywhere: `.\scripts\install-cli.ps1` — then you can call `home-server.ps1` from anywhere.
+- Full clean reinstall: `.\start.ps1 --clean`
 
 ---
 
@@ -164,13 +209,23 @@ cp server/.env.example server/.env
 
    Output: `frontend/build/`.
 
-2. **Full run (frontend + backend from one process):**
+2. **Full run (frontend + backend in one process):**
 
    ```bash
    ./start.sh
    ```
 
-   Or manually: build frontend (step 1), then set `STATIC_DIR` (absolute path to `frontend/build`) and `AUTH_REQUIRED` in `server/.env`, and run `python -m src` from the `server` directory.
+   Or manually: build frontend (step 1), then set `STATIC_DIR` (absolute path to `frontend/build` or `server/static`) and `AUTH_REQUIRED` in `server/.env`, and run `python -m src` from `server` with `server/.venv` activated.
+
+3. **Binary (PyInstaller)** — with `server/.venv` active and dev dependencies:
+
+   ```bash
+   . server/.venv/bin/activate
+   pip install -r server/requirements-dev.txt
+   cd server && pyinstaller home-file-server.spec
+   ```
+
+   Output: `server/dist/home-file-server` (Linux).
 
 ---
 

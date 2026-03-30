@@ -48,14 +48,8 @@ check_dependencies() {
     
     if [ ${#missing[@]} -gt 0 ]; then
         print_error "Отсутствуют зависимости: ${missing[*]}"
-        if [ -x "$ROOT/scripts/install-deps.sh" ]; then
-            "$ROOT/scripts/install-deps.sh" || exit 1
-            check_dependencies
-            return
-        else
-            show_install_instructions "${missing[@]}"
-            exit 1
-        fi
+        show_install_instructions "${missing[@]}"
+        exit 1
     fi
 }
 
@@ -102,7 +96,7 @@ show_install_instructions() {
 setup_python_venv() {
     print_info "Настройка виртуального окружения Python..."
     
-    VENV_DIR="$ROOT/server/venv"
+    VENV_DIR="$ROOT/server/.venv"
     
     if [ ! -d "$VENV_DIR" ]; then
         print_info "Создание виртуального окружения..."
@@ -197,7 +191,7 @@ ensure_directories() {
 clean_install() {
     if [ "${1:-}" = "--clean" ]; then
         print_warning "Полная переустановка..."
-        rm -rf "$ROOT/server/venv"
+        rm -rf "$ROOT/server/.venv"
         rm -rf "$ROOT/frontend/node_modules"
         rm -rf "$ROOT/server/static"
         print_success "Очистка завершена"

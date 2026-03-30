@@ -10,11 +10,11 @@
 
 Скрипт:
 
-1. Проверяет наличие Node.js, npm и Python.
-2. Устанавливает зависимости фронтенда (`npm ci` в `frontend/`).
-3. Собирает фронтенд (`npm run build` → папка `frontend/build/`).
-4. Устанавливает зависимости сервера (`pip install -r server/requirements.txt`).
-5. Запускает сервер с раздачей веб‑интерфейса с того же порта (`STATIC_DIR=frontend/build`).
+1. Проверяет наличие Node.js, npm и Python (без автоматической установки через пакетный менеджер ОС — при отсутствии выводятся подсказки).
+2. При необходимости создаёт виртуальное окружение **`server/.venv`** и устанавливает зависимости (`pip install -r server/requirements.txt`).
+3. Устанавливает зависимости фронтенда (`npm ci` в `frontend/`, при отсутствии `package-lock.json` — `npm install`).
+4. Собирает фронтенд (`npm run build` → копирование в `server/static`).
+5. Запускает сервер с раздачей веб‑интерфейса с того же порта (`STATIC_DIR` указывает на `server/static`).
 
 Веб‑интерфейс: **http://localhost:8080** (или `http://<IP-вашего-ПК>:8080` с другого устройства в сети).
 
@@ -45,7 +45,7 @@ cp server/.env.example server/.env
 | Переменная | Описание | По умолчанию |
 |------------|----------|--------------|
 | **AUTH_REQUIRED** | `true` — доступ по токену; `false` — без авторизации. Если не задано — при запуске спрашивается в консоли. | — |
-| **STATIC_DIR** | Путь к папке со сборкой фронта. Если задан — API доступен по префиксу `/api`, корень отдаёт веб‑интерфейс (SPA). В `start.sh` задаётся автоматически. | — |
+| **STATIC_DIR** | Путь к папке со сборкой фронта. Если задан — API доступен по префиксу `/api`, корень отдаёт веб‑интерфейс (SPA). В `start.sh` задаётся автоматически (каталог `server/static`). | — |
 | **SERVER_HOST** | Хост сервера. | `0.0.0.0` |
 | **SERVER_PORT** | Порт. | `8080` |
 | **LANGUAGE** | Язык консольных сообщений и подсказок: `ru` или `en`. | `ru` |
@@ -65,7 +65,15 @@ cp server/.env.example server/.env
 
 ## Сборка вручную (без start.sh)
 
-### 1. Фронтенд
+### 1. Виртуальное окружение Python
+
+```bash
+python3 -m venv server/.venv
+. server/.venv/bin/activate
+pip install -r server/requirements.txt
+```
+
+### 2. Фронтенд
 
 ```bash
 cd frontend
@@ -73,30 +81,30 @@ npm ci
 npm run build
 ```
 
-Результат: папка `frontend/build/` (index.html и статика).
+Результат: папка `frontend/build/` (index.html и статика). Скопируйте её в `server/static` или укажите путь к `frontend/build` в `STATIC_DIR`.
 
-### 2. Сервер с раздачей интерфейса
+### 3. Сервер с раздачей интерфейса
 
 В `server/.env` задайте:
 
 ```env
-STATIC_DIR=/полный/путь/к/проекту/frontend/build
+STATIC_DIR=/полный/путь/к/проекту/server/static
 AUTH_REQUIRED=true
 ```
 
-Запуск:
+Запуск (из каталога `server`, venv активирован):
 
 ```bash
 cd server
-pip install -r requirements.txt
 python -m src
 ```
 
-Либо экспортируйте переменные в shell и запустите из `server`:
+Либо экспортируйте переменные в shell:
 
 ```bash
 cd server
-export STATIC_DIR="$(pwd)/../frontend/build"
+. .venv/bin/activate
+export STATIC_DIR="$(pwd)/static"
 export AUTH_REQUIRED=true
 python -m src
 ```
@@ -105,7 +113,7 @@ python -m src
 
 ## Только API (без веб‑интерфейса)
 
-Не задавайте `STATIC_DIR` в `.env`. Запустите сервер из `server`:
+Не задавайте `STATIC_DIR` в `.env`. Запустите сервер из `server` с активированным `server/.venv`:
 
 ```bash
 cd server
@@ -116,7 +124,23 @@ python -m src
 
 ---
 
+## CI и бинарник
+
+При пуше в ветку **main** в GitHub Actions выполняются `pytest` и сборка PyInstaller по `server/home-file-server.spec`.
+
+Локальная сборка бинарника (нужны пакеты из `server/requirements-dev.txt`):
+
+```bash
+. server/.venv/bin/activate
+pip install -r server/requirements-dev.txt
+cd server && pyinstaller home-file-server.spec
+```
+
+---
+
 ## Требования к системе
 
 - **Node.js** 18+ и **npm**
 - **Python** 3.10+
+
+Зависимости Python устанавливаются в **`server/.venv`**.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# home-server: запуск сервера на 8085 и фронта на 5175 (после make install-cli).
+# home-server: dev-запуск API + Vite (см. scripts/run-cli.sh; нужны server/.venv и frontend/node_modules).
 
 set -euo pipefail
 SOURCE="${BASH_SOURCE[0]}"

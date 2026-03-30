@@ -6,6 +6,9 @@
 
 **Home File Server** — это легковесное приложение для безопасного обмена файлами в локальной сети (LAN). Идеально подходит для передачи файлов между компьютерами и мобильными устройствами без облачных сервисов.
 
+> ВНИМАНИЕ!\
+> Сборка банарника только под серверную часть. UI интерфейс следует собирать вручную!
+
 ### Возможности
 
 - **Веб‑интерфейс** — просмотр директорий, превью изображений и текстовых файлов, загрузка и скачивание
@@ -23,9 +26,20 @@
 
 ---
 
+## Требования
+
+Установите в систему вручную:
+
+- **Python** 3.10+
+- **Node.js** 18+ и **npm**
+
+Python‑зависимости проекта ставятся в виртуальное окружение **`server/.venv`** (его создаёт и использует `./start.sh`, либо создайте сами и установите зависимости).
+
+---
+
 ## Быстрый старт
 
-После клонирования репозитория запуск одной командой:
+После клонирования репозитория:
 
 ```bash
 ./start.sh
@@ -37,20 +51,25 @@
 make run
 ```
 
-Скрипт при отсутствии системных зависимостей предложит установить их (yes/no). При согласии Python и Node.js устанавливаются автоматически через пакетный менеджер (apt, dnf, pacman, brew). Затем устанавливаются зависимости проекта, собирается фронтенд и запускается сервер.
+Скрипт `start.sh` проверяет наличие Node.js, npm и Python (без автоматической установки пакетами системы). При отсутствии чего‑либо выводятся подсказки, как установить зависимости вручную. Если всё на месте, создаётся при необходимости **`server/.venv`**, ставятся зависимости из `server/requirements.txt`, собирается фронтенд и запускается сервер.
 
 **Веб‑интерфейс:** `http://localhost:8080` (или `http://<IP>:8080` с другого устройства в сети).
 
 При первом запуске без настроенного `.env` сервер спросит в консоли: **с токеном (y)** или **без (n)**. Чтобы запуск был полностью без вопросов, создайте `server/.env` и задайте `AUTH_REQUIRED=true` или `AUTH_REQUIRED=false`.
 
----
+### Ручная подготовка окружения (без start.sh)
 
-## Требования
+```bash
+python3 -m venv server/.venv
+. server/.venv/bin/activate
+pip install -r server/requirements.txt
+cd frontend && npm ci && npm run build
+cd ..
+rm -rf server/static && cp -r frontend/build server/static
+cd server && STATIC_DIR="$(pwd)/static" python -m src
+```
 
-- **Node.js** 18+ и **npm**
-- **Python** 3.10+
-
-Если чего‑то не хватает, при запуске `./start.sh` или `make run` появится предложение установить зависимости (yes/no). Отдельно проверить и установить только системные зависимости: `make install-deps`.
+Удобнее задать `STATIC_DIR` в `server/.env` и запускать `python -m src` из каталога `server` (см. ниже).
 
 ---
 
@@ -66,40 +85,67 @@ Home-server/
 │   │   │   ├── auth/    # Аутентификация, токены, QR
 │   │   │   └── share/   # Файлы, директории, загрузки
 │   │   └── i18n.py      # Локализация (ru/en)
+│   ├── tests/           # Тесты (pytest)
 │   ├── storage/         # Токены, shared_directories.json
-│   └── requirements.txt
+│   ├── requirements.txt
+│   ├── requirements-dev.txt  # pytest, pyinstaller (для CI и разработки)
+│   └── .venv/           # Виртуальное окружение Python (не в git)
 ├── frontend/            # SvelteKit SPA
 │   ├── src/
 │   │   ├── routes/      # /auth/login, /workspace
 │   │   └── lib/         # Компоненты, API
 │   └── package.json
 ├── docs/                # Документация по деплою
-├── scripts/             # Скрипты запуска, установки
-├── start.sh             # Основной скрипт запуска
+├── scripts/             # Вспомогательные скрипты (сборка фронта, run-cli)
+├── start.sh             # Скрипт запуска (venv, npm, сборка, сервер)
 └── Makefile
 ```
 
 ---
 
-## Makefile и CLI
+## Makefile
 
 | Команда | Описание |
 |---------|----------|
-| `make run` | Быстрый запуск (если уже установлено — только сервер; иначе полная установка и запуск). |
+| `make run` | Если есть `server/.venv` и `server/static` — только сервер; иначе полный цикл (`./start.sh`). |
 | `make run-full` | Полный цикл как `./start.sh`. |
-| `make run-server` | Только запуск сервера (venv и статика должны быть уже готовы). |
-| `make install` | Установка зависимостей проекта (после `install-deps`: venv, npm, сборка). |
-| `make install-deps` | Проверка Python и Node.js; при отсутствии — предложение установить (yes/no). |
+| `make run-server` | Только сервер (нужны готовые `server/.venv` и статика). |
 | `make build` | Сборка фронтенда и копирование в `server/static`. |
 | `make dev` | Режим разработки (сервер с reload). |
-| `make clean` | Удалить venv, node_modules, server/static. |
-| `make install-cli` | Один раз установить команду `home-server` в PATH (~/.local/bin). |
-| `make uninstall-cli` | Удалить команду `home-server` из PATH. |
-
-**Запуск из любой директории:** выполните `make install-cli`. После этого команда `home-server` будет доступна из любого места. Убедитесь, что `~/.local/bin` в вашем PATH.
+| `make clean` | Удалить `server/.venv`, `frontend/node_modules`, `server/static`. |
 
 ---
 
+## Dev: API + Vite отдельно
+
+Если нужны отдельные порты сервера и Vite, после установки зависимостей в `server/.venv` и `frontend/node_modules`:
+
+```bash
+./scripts/run-cli.sh
+```
+
+---
+
+## CI
+
+При пуше в ветку **`main`** GitHub Actions выполняет тесты Python (`pytest` в `server/`) и сборку бинарника PyInstaller (`server/home-file-server.spec`). Артефакт с бинарником прикрепляется к запуску workflow.
+
+### Релиз по тегу
+
+При пуше тега вида **`v*`** (например `v1.0.0`) запускается workflow **Release**: те же тесты, сборка фронта, архив **`home-file-server-static.zip`** (содержимое `server/static`), бинарник **`home-file-server`**, публикация **[GitHub Releases](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases)** для этого тега.
+
+**Пример команд:**
+
+```bash
+git checkout main
+git pull
+git tag -a v1.0.0 -m "Release v1.0.0"
+git push origin v1.0.0
+```
+
+Бинарник не включает статику; для UI распакуйте архив рядом с бинарником и задайте **`STATIC_DIR`** на каталог со статикой (см. `server/.env.example`).
+
+---
 
 ## Вход по QR и камера
 
@@ -155,7 +201,17 @@ cp server/.env.example server/.env
    ./start.sh
    ```
 
-   Либо вручную: собрать фронт (п. 1), затем в `server/.env` задать `STATIC_DIR` (абсолютный путь к `frontend/build`) и `AUTH_REQUIRED`, после чего запустить `python -m src` из папки `server`.
+   Либо вручную: собрать фронт (п. 1), затем в `server/.env` задать `STATIC_DIR` (абсолютный путь к `frontend/build` или к `server/static`) и `AUTH_REQUIRED`, затем из каталога `server` с активированным `server/.venv` выполнить `python -m src`.
+
+3. **Бинарник (PyInstaller)** — локально в активированном `server/.venv` с установленными `requirements-dev.txt`:
+
+   ```bash
+   . server/.venv/bin/activate
+   pip install -r server/requirements-dev.txt
+   cd server && pyinstaller home-file-server.spec
+   ```
+
+   Результат: `server/dist/home-file-server` (Linux).
 
 ---
 

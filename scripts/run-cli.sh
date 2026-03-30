@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Запуск home-server через CLI: сервер на 8085, фронт на 5175.
-# Используется командой home-server после make install-cli.
+# Запуск dev: API + Vite (сервер и фронт на разных портах).
+# Вызов вручную: ./scripts/run-cli.sh (нужны server/.venv и frontend/node_modules).
 
 set -euo pipefail
 SOURCE="${BASH_SOURCE[0]}"
@@ -36,15 +36,15 @@ unset STATIC_DIR
 mkdir -p "$ROOT/server/data" "$ROOT/server/logs"
 
 # Проверка venv
-VENV="$ROOT/server/venv"
+VENV="$ROOT/server/.venv"
 if [ ! -d "$VENV" ] || [ ! -f "$VENV/bin/activate" ]; then
-    echo "❌ Сначала выполните: make install"
+    echo "❌ Нужен venv: python3 -m venv server/.venv && . server/.venv/bin/activate && pip install -r server/requirements.txt"
     exit 1
 fi
 
 # Проверка frontend
 if [ ! -d "$ROOT/frontend/node_modules" ]; then
-    echo "❌ Сначала выполните: make install"
+    echo "❌ Установите зависимости фронта: cd frontend && npm ci"
     exit 1
 fi
 

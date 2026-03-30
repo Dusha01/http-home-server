@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Create venv and install Python dependencies
+        run: |
+          python -m venv server/.venv
+          source server/.venv/bin/activate
+          pip install --upgrade pip
+          pip install -r server/requirements.txt -r server/requirements-dev.txt
+
+      - name: Run Python tests
+        run: |
+          source server/.venv/bin/activate
+          cd server && pytest
+
+      - name: Build PyInstaller binary
+        run: |
+          source server/.venv/bin/activate
+          cd server && pyinstaller home-file-server.spec
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: home-file-server-linux
+          path: server/dist/home-file-server

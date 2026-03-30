@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Create venv and install Python dependencies
+        run: |
+          python -m venv server/.venv
+          source server/.venv/bin/activate
+          pip install --upgrade pip
+          pip install -r server/requirements.txt -r server/requirements-dev.txt
+
+      - name: Run Python tests
+        run: |
+          source server/.venv/bin/activate
+          cd server && pytest
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend and deploy to server/static
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+          cd ..
+          rm -rf server/static
+          cp -r frontend/build server/static
+
+      - name: Archive static assets (Svelte build)
+        run: |
+          cd server && zip -qr ../home-file-server-static.zip static
+
+      - name: Build PyInstaller binary
+        run: |
+          source server/.venv/bin/activate
+          cd server && pyinstaller home-file-server.spec
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            server/dist/home-file-server
+            home-file-server-static.zip
+          generate_release_notes: true

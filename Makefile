@@ -4,25 +4,25 @@
 ROOT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 SERVER := $(ROOT)server
 FRONTEND := $(ROOT)frontend
-VENV := $(SERVER)/venv
+VENV := $(SERVER)/.venv
 STATIC := $(SERVER)/static
 
-.PHONY: help run install install-deps build clean run-server run-full dev uninstall-cli install-cli
+.PHONY: help run run-server run-full build clean dev
 
 # Цель по умолчанию
 help:
 	@echo "Home Server — доступные команды:"
 	@echo ""
-	@echo "  make run          — запуск (полная проверка, сборка при необходимости, сервер)"
-	@echo "  make run-server   — только запуск сервера (без сборки фронта)"
-	@echo "  make run-full     — полная установка и запуск (как ./start.sh)"
-	@echo "  make install      — установка зависимостей проекта (venv + npm + сборка)"
-	@echo "  make install-deps — проверка системных зависимостей (Python, Node.js), предложит установить"
+	@echo "  make run          — запуск (если venv и статика есть — только сервер; иначе полный цикл через start.sh)"
+	@echo "  make run-server   — только запуск сервера (нужны server/.venv и server/static)"
+	@echo "  make run-full     — полный цикл как ./start.sh (venv, npm, сборка фронта, запуск)"
 	@echo "  make build        — сборка фронтенда и копирование в server/static"
 	@echo "  make dev          — режим разработки (сервер с reload + не трогать статику)"
-	@echo "  make clean        — удалить venv, node_modules, server/static"
-	@echo "  make install-cli  — установить команду 'home-server' в PATH (один раз). После этого home-server запускает сервер на :8085 и фронт на :5175"
-	@echo "  make uninstall-cli — удалить команду 'home-server' из PATH"
+	@echo "  make clean        — удалить server/.venv, frontend/node_modules, server/static"
+	@echo ""
+	@echo "Зависимости: установите вручную Python 3.10+, Node.js 18+ и npm; затем:"
+	@echo "  python3 -m venv server/.venv && . server/.venv/bin/activate && pip install -r server/requirements.txt"
+	@echo "  cd frontend && npm ci"
 	@echo ""
 
 # Быстрый запуск: если уже установлено — только сервер; иначе полный цикл
@@ -41,14 +41,6 @@ run-server:
 run-full:
 	@./start.sh
 
-# Установка только зависимостей проекта (venv, npm, сборка). Системные зависимости — через install-deps
-install: install-deps ensure-dirs
-	@./scripts/install-project.sh
-
-# Проверка системных зависимостей (Python, Node.js); при отсутствии — предложит установить (yes/no)
-install-deps:
-	@./scripts/install-deps.sh
-
 # Сборка фронтенда и копирование в server/static
 build: ensure-dirs
 	@./scripts/build-frontend.sh
@@ -65,11 +57,3 @@ ensure-dirs:
 clean:
 	rm -rf $(VENV) $(FRONTEND)/node_modules $(STATIC)
 	@echo "Очистка завершена."
-
-# Установка CLI: команда home-server будет доступна в любом месте
-install-cli:
-	@./scripts/install-cli.sh
-
-# Удаление CLI
-uninstall-cli:
-	@./scripts/install-cli.sh --uninstall
